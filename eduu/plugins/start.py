@@ -31,25 +31,20 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
         send = msg.reply_text
 
     buttons = [
-        [InlineKeyboardButton(s("start_commands_btn"), callback_data="commands")],
         [
+            InlineKeyboardButton(s("start_commands_btn"), callback_data="commands"),
             InlineKeyboardButton(s("start_language_btn"), callback_data="chlang"),
+        ],
+        [
+            InlineKeyboardButton(s("start_updates_btn"), url=UPDATES_CHANNEL),
+            InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL)
+        ],
+        [
             InlineKeyboardButton(
                 s("start_add_to_chat_btn"),
                 url=f"https://t.me/{c.me.username}?startgroup=new",
-            ),
-        ],
+            ),]
     ]
-
-    if UPDATES_CHANNEL:
-        buttons.append(
-            [InlineKeyboardButton(s("start_updates_btn"), url=UPDATES_CHANNEL)]
-        )
-
-    if OWNER_URL:
-        buttons.append(
-            [InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL)]
-        )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await send(s("start_private"), reply_markup=keyboard)
