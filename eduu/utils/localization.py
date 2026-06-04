@@ -21,36 +21,11 @@ if TYPE_CHECKING:
     from hydrogram import Client
 
 enabled_locales: list[str] = [
-    "en-GB",  # English (United Kingdom)
     "en-US",  # English (United States)
-    "pt-BR",  # Portuguese (Brazil)
-    "es-ES",  # Spanish
-    "fr-FR",  # French
-    "de-DE",  # German
-    "it-IT",  # Italian
-    "nl-NL",  # Dutch
-    "ar-SA",  # Arabic
-    "ckb-IR",  # Sorani (Kurdish)
-    "fi-FI",  # Finnish
-    "he-IL",  # Hebrew
-    "id-ID",  # Indonesian
-    "ja-JP",  # Japanese
-    "no-NO",  # Norwegian
-    "pl-PL",  # Polish
-    "pt-BR@formal",  # Portuguese (Brazil, extended version)
-    "pt-BR@informal",  # Portuguese (Brazil, informal version)
-    "eo-XX",  # Esperanto
-    "ro-RO",  # Romanian
-    "ru-RU",  # Russian
-    "sv-SE",  # Swedish
-    "tr-TR",  # Turkish
-    "uk-UA",  # Ukranian
-    "uz-UZ",  # Uzbek
-    "zh-CN",  # Chinese (Simplified)
-    "zh-TW",  # Chinese (Traditional)
+
 ]
 
-default_language: str = "en-GB"
+default_language: str = "en-US"
 
 
 def cache_locales(locales: list[str]) -> dict[str, dict[str, str]]:
