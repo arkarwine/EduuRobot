@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 enabled_locales: list[str] = [
     "en-US",  # English (United States)
+    "my-MM`",  # Burmese (Myanmar)
 
 ]
 
