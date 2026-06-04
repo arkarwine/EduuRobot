@@ -62,8 +62,10 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
                 )
                 successful += 1
             except (BadRequest, Forbidden):
+                print(f"Error broadcasting to chat {chat_id}: {e}")
                 failed += 1
-            except Exception:
+            except Exception as e:
+                print(f"Unexpected error with chat {chat_id}: {e}")
                 failed += 1
 
             if (i + 1) % 10 == 0:
@@ -105,4 +107,5 @@ async def chat_statistics(c: Client, m: Message, s: Strings):
 
         await m.reply_text(stats_text)
     except Exception as e:
+        print(f"Error getting statistics: {e}")
         await m.reply_text(f"<b>Error getting statistics:</b>\n<code>{str(e)}</code>")
