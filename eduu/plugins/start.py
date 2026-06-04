@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from hydrogram import Client, filters
+from hydrogram.enums import ChatMembersFilter, ChatMemberStatus
 from hydrogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -11,7 +12,7 @@ from hydrogram.types import (
     Message,
 )
 
-from config import PREFIXES
+from config import PREFIXES, UPDATES_CHANNEL, OWNER_URL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
 from eduu.utils.localization import Strings, use_chat_lang
@@ -29,21 +30,28 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
         msg = m
         send = msg.reply_text
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(s("start_commands_btn"), callback_data="commands"),
-                InlineKeyboardButton(s("start_infos_btn"), callback_data="infos"),
-            ],
-            [
-                InlineKeyboardButton(s("start_language_btn"), callback_data="chlang"),
-                InlineKeyboardButton(
-                    s("start_add_to_chat_btn"),
-                    url=f"https://t.me/{c.me.username}?startgroup=new",
-                ),
-            ],
-        ]
-    )
+    buttons = [
+        [InlineKeyboardButton(s("start_commands_btn"), callback_data="commands")],
+        [
+            InlineKeyboardButton(s("start_language_btn"), callback_data="chlang"),
+            InlineKeyboardButton(
+                s("start_add_to_chat_btn"),
+                url=f"https://t.me/{c.me.username}?startgroup=new",
+            ),
+        ],
+    ]
+
+    if UPDATES_CHANNEL:
+        buttons.append(
+            [InlineKeyboardButton(s("start_updates_btn"), url=UPDATES_CHANNEL)]
+        )
+
+    if OWNER_URL:
+        buttons.append(
+            [InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL)]
+        )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await send(s("start_private"), reply_markup=keyboard)
 
 
@@ -77,4 +85,20 @@ async def infos(c: Client, m: CallbackQuery, s: Strings):
     await m.message.edit_text(res, reply_markup=keyboard, disable_web_page_preview=True)
 
 
+@Client.on_message(filters.command("owner", PREFIXES) & filters.group)
+@use_chat_lang
+async def get_group_owner(c: Client, m: Message, s: Strings):
+    """Get the group owner"""
+    async for member in m.chat.get_members(filter=ChatMembersFilter.ADMINISTRATORS):
+        if member.status == ChatMemberStatus.OWNER:
+            owner_info = s("owner_info").format(
+                owner_name=member.user.first_name,
+                owner_mention=member.user.mention(),
+            )
+            await m.reply_text(owner_info)
+            return
+    await m.reply_text(s("owner_not_found"))
+
+
 commands.add_command("start", "general")
+commands.add_command("owner", "general")

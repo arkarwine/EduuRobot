@@ -47,5 +47,11 @@ LOG_CHAT: int = 123456789
 # e.g: /command and !command
 PREFIXES: List[str] = ["/", "!"]
 
+# Updates channel username (e.g., "@channelname" or full URL)
+UPDATES_CHANNEL: str = ""
+
+# Owner username or URL (e.g., "@username" or full URL)
+OWNER_URL: str = ""
+
 # List of disabled plugins
 DISABLED_PLUGINS: List[str] = []

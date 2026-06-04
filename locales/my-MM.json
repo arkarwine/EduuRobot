@@ -54,6 +54,7 @@
   "cmd_mute_description": "Chat တွင် user တစ်ဦးကို mute ပြုလုပ်သည်။",
   "cmd_note_description": "ဤ chat အတွက် note တစ်ခု ဖန်တီးသည်။",
   "cmd_notes_description": "ဤ chat ၏ သိမ်းဆည်းထားသော note များကို ပြသည်။",
+  "cmd_owner_description": "Group ၏ owner ကို ပြသည်။",
   "cmd_parsebutton_description": "Button တစ်ခု parse ပြုလုပ်ရာတွင် ကူညီသည်။",
   "cmd_pin_description": "Reply ပြုလုပ်ထားသော message ကို chat တွင် pin ပြုလုပ်သည်။ Notification ဖွင့်ရန် <code>loud</code> ကို သုံးနိုင်သည်။",
   "cmd_ping_description": "Bot ၏ message ပို့ရန် delay ကို ပြသည်။",
@@ -203,6 +204,10 @@
   "start_infos_btn": "ℹ️ အကြောင်း",
   "start_language_btn": "🌐 ဘာသာစကား",
   "start_private": "မင်္ဂလာပါ! ကျွန်ုပ်မှာ EduuRobot ဖြစ်သည်။ ကျွန်ုပ်၏ လုပ်ဆောင်ချက်များအကြောင်း ပိုမိုသိရှိရန် အောက်ပါ ခလုတ်များကို နှိပ်ပါ။",
+  "start_updates_btn": "📢 အဆင့်မြှင့်တင်ချက်များ",
+  "start_owner_btn": "👤 Owner",
+  "owner_info": "👤 <b>Chat Owner-</b> {owner_name}\n\n{owner_mention}",
+  "owner_not_found": "❌ Chat owner ကို ရှာမတွေ့ပါ။",
 
   "stickerid_string": "ဤ sticker ၏ ID မှာ - <code>{stickerid}</code>",
 
