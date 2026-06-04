@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Eduu(Client):
     def __init__(self):
-        name = self.__class__.__name__.lower()
+        name = "family_bot"
 
         super().__init__(
             name=name,
