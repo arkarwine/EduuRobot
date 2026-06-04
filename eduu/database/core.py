@@ -71,6 +71,14 @@ class Database:
             chat_id INTEGER,
             count INTEGER
         );
+
+        CREATE TABLE IF NOT EXISTS chat_logs(
+            chat_id INTEGER PRIMARY KEY,
+            chat_type TEXT,
+            first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            chat_title TEXT
+        );
         """
         )
 

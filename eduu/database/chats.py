@@ -10,6 +10,8 @@ conn = database.get_conn()
 
 
 async def add_chat(chat_id, chat_type):
+    # Also log the chat in chat_logs
+    from eduu.database.chat_logs import log_chat  # Avoid circular imports
     if chat_type == ChatType.PRIVATE:
         await conn.execute("INSERT INTO users (user_id) values (?)", (chat_id,))
         await conn.commit()
