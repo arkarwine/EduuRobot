@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 from typing import TYPE_CHECKING
 
 from hydrogram import Client, filters
@@ -52,21 +53,23 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
 
         successful = 0
         failed = 0
+        errors: str = ""
 
         for i, chat_id in enumerate(chat_ids):
             try:
-                await c.copy_message(
+                await c.forward_messages(
                     chat_id=chat_id,
                     from_chat_id=source_message.chat.id,
-                    message_id=source_message.message_id,
+                    message_id=source_message.id,
                 )
                 successful += 1
             except (BadRequest, Forbidden):
-                print(f"Error broadcasting to chat {chat_id}: {e}")
                 failed += 1
+                errors += f"{chat_id}: {e}\n"
+
             except Exception as e:
-                print(f"Unexpected error with chat {chat_id}: {e}")
                 failed += 1
+                errors += f"{chat_id}: {e}\n"
 
             if (i + 1) % 10 == 0:
                 await status_msg.edit_text(
@@ -75,6 +78,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
                     f"✅ Successful: {successful}\n"
                     f"❌ Failed: {failed}",
                 )
+                
                 await asyncio.sleep(0.1)
 
         await status_msg.edit_text(
@@ -83,6 +87,10 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
             f"✅ Successful: {successful}\n"
             f"❌ Failed: {failed}",
         )
+        if errors:
+            file = io.BytesIO(errors.encode("utf-8"))
+            file.name = "errors.txt"
+            await m.reply_document(file, caption="Errors during broadcast")
     except Exception as e:
         await m.reply_text(f"<b>Error during broadcast:</b>\n<code>{str(e)}</code>")
 
