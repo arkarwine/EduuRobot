@@ -1,49 +1,38 @@
 {
   "_meta_language_flag": "🇲🇲",
   "_meta_language_name": "မြန်မာဘာသာ",
+
   "admins_error_must_specify_time": "Command ပြီးနောက် အချိန်တစ်ခု သတ်မှတ်ရမည်၊ ဥပမာ - <code>/{command} 7d</code>။",
   "admins_list": "{chat_title} ရှိ Admin များ-\n{admins_list}",
   "admins_no_admin_error": "ဤ command ကို သုံးရန် Admin ဖြစ်ရမည်။",
   "admins_no_permission_error": "ဝမ်းနည်းပါသည်၊ သင့်တွင် ဤ command ကို run ရန် လိုအပ်သော ခွင့်ပြုချက်မရှိပါ။ လိုအပ်သော permissions - {permissions}",
   "admins_reason_string": "အကြောင်းပြချက် - {reason_text}",
+
   "antichannelpin_disabled": "ဤ chat အတွက် anti channel pin ကို ပိတ်လိုက်ပါပြီ။",
   "antichannelpin_enabled": "ဤ chat အတွက် anti channel pin ကို ဖွင့်လိုက်ပါပြီ။",
   "antichannelpin_invalid_arg": "မှားယွင်းသော argument ဖြစ်သည်။ <code>/antichannelpin off/on</code> ဟု သုံးပါ။",
   "antichannelpin_status_disabled": "ဤ chat တွင် anti channel pin ကို လောလောဆယ် ပိတ်ထားသည်။",
   "antichannelpin_status_enabled": "ဤ chat တွင် anti channel pin ကို လောလောဆယ် ဖွင့်ထားသည်။",
-  "ai_error": "❌ Error: {error}",
-  "ai_empty_response": "🤔 AI မှ တုံ့ပြန်မှု ဗလာဖြစ်နေသည်။ နောက်တစ်ကြိမ် ထပ်စမ်းကြည့်ပါ။",
-  "ai_no_input": "💬 Message တစ်ခုကို reply ပြုလုပ်ပါ သို့မဟုတ် text ကို parameter အဖြစ် ထည့်ပါ။\n\n<code>/ai သင်၏မေးခွန်း</code>",
-  "ai_no_service": "❌ AI service မရရှိနိုင်ပါ။ API key ကို စစ်ဆေးပါ သို့မဟုတ် google-genai package ကို ထည့်သွင်းပါ။",
+
   "ban_cannot_ban_admins": "Admin များကို ban ပြုလုပ်၍မရပါ။",
   "ban_success": "{user} ကို {admin} မှ ban ပြုလုပ်လိုက်ပါပြီ။",
-  "cban_success": "{user} ကို {admin} မှ {chat_title} မှ ban ပြုလုပ်လိုက်ပါပြီ။",
-  "ckick_success": "{user} ကို {admin} မှ {chat_title} မှ kick ပြုလုပ်လိုက်ပါပြီ။",
-  "cunban_success": "{user} ကို {admin} မှ {chat_title} တွင် unban ပြုလုပ်လိုက်ပါပြီ။",
-  "cmute_success": "{user} ကို {admin} မှ {chat_title} တွင် mute ပြုလုပ်လိုက်ပါပြီ။",
-  "ctmute_success": "{user} ကို {admin} မှ {chat_title} တွင် <b>{time}</b> ကြာ ယာယီ mute ပြုလုပ်လိုက်ပါပြီ။",
-  "ctban_success": "{user} ကို {admin} မှ {chat_title} မှ <b>{time}</b> ကြာ ယာယီ ban ပြုလုပ်လိုက်ပါပြီ။",
-  "cunmute_success": "{user} ကို {admin} မှ {chat_title} တွင် unmute ပြုလုပ်လိုက်ပါပြီ။",
-  "remote_mod_chat_not_found": "ရည်ညွှန်းသော chat ကို ရှာမတွေ့ပါ - <code>{chat}</code>။",
-  "remote_mod_user_not_found": "ရည်ညွှန်းသော user ကို ရှာမတွေ့ပါ - <code>{user}</code>။",
-  "remote_mod_usage": "သုံးနည်း - /{command} <chat_id|@username> <user_id|@username> [အကြောင်းပြချက်]",
-  "remote_mod_time_usage": "သုံးနည်း - /{command} <chat_id|@username> <user_id|@username> <အချိန်> [အကြောင်းပြချက်]",
+
   "bug_report_empty": "Report ပြုလုပ်မည့် bug ကို သတ်မှတ်ရမည်၊ ဥပမာ - <code>/bug သင်၏ bug</code>။",
   "bug_report_failed": "Error - Bot ၏ admin များထံ bug report ပေးပို့၍မရပါ။",
   "bug_report_success": "Bug ကို အောင်မြင်စွာ report ပြုလုပ်ပြီးပါပြီ။",
+
   "cat_meow": "Meow!",
+
   "cleanservice_disabled": "ဤ chat အတွက် service message ဖျက်ခြင်းကို ပိတ်လိုက်ပါပြီ။",
   "cleanservice_enabled": "ဤ chat အတွက် service message ဖျက်ခြင်းကို ဖွင့်လိုက်ပါပြီ။",
   "cleanservice_invalid_arg": "မှားယွင်းသော argument ဖြစ်သည်။ <code>/cleanservice off/on</code> ဟု သုံးပါ။",
   "cleanservice_status_disabled": "ဤ chat တွင် service message ဖျက်ခြင်းကို လောလောဆယ် ပိတ်ထားသည်။",
   "cleanservice_status_enabled": "ဤ chat တွင် service message ဖျက်ခြင်းကို လောလောဆယ် ဖွင့်ထားသည်။",
-  "cmd_ai_description": "AI ထံ မေးခွန်းမေးသည်။ Message တစ်ခုကို reply ပြုလုပ်ပါ သို့မဟုတ် text ကို parameter အဖြစ် ထည့်ပါ။",
+
   "cmd_admins_description": "Chat ၏ admin များစာရင်းကို ပြသည်။",
   "cmd_antichannelpin_description": "Chat နှင့် ချိတ်ဆက်ထားသော channel မှ pin ပြုလုပ်ထားသော message များကို အလိုအလျောက် unpin ပြုလုပ်သည်။",
   "cmd_ban_description": "User တစ်ဦးကို chat မှ ban ပြုလုပ်သည်။",
-  "cmd_broadcast_description": "မှတ်တမ်းတင်ထားသော chat အားလုံးသို့ message ပျံ့နှံ့ပေးပို့သည် (sudoers များသာ သုံးနိုင်သည်)။",
   "cmd_cat_description": "ကြောင်ဓာတ်ပုံ random တစ်ပုံ ပို့သည်။",
-  "cmd_chatstats_description": "မှတ်တမ်းတင်ထားသော chat များဆိုင်ရာ စာရင်းအင်းများကို ပြသည် (sudoers များသာ သုံးနိုင်သည်)။",
   "cmd_cleanservice_description": "Chat မှ service message များ (ဥပမာ - user တစ်ဦး ပါဝင်လာသောအခါ) ကို ဖျက်သည်။",
   "cmd_coub_description": "Search ရလဒ်များမှ random Coub (တိုတောင်းသောဗီဒီယို) တစ်ခု ပို့သည်။",
   "cmd_delfilter_description": "ဤ chat မှ filter တစ်ခု ဖယ်ရှားသည်။",
@@ -65,7 +54,6 @@
   "cmd_mute_description": "Chat တွင် user တစ်ဦးကို mute ပြုလုပ်သည်။",
   "cmd_note_description": "ဤ chat အတွက် note တစ်ခု ဖန်တီးသည်။",
   "cmd_notes_description": "ဤ chat ၏ သိမ်းဆည်းထားသော note များကို ပြသည်။",
-  "cmd_owner_description": "Group ၏ owner ကို ပြသည်။",
   "cmd_parsebutton_description": "Button တစ်ခု parse ပြုလုပ်ရာတွင် ကူညီသည်။",
   "cmd_pin_description": "Reply ပြုလုပ်ထားသော message ကို chat တွင် pin ပြုလုပ်သည်။ Notification ဖွင့်ရန် <code>loud</code> ကို သုံးနိုင်သည်။",
   "cmd_ping_description": "Bot ၏ message ပို့ရန် delay ကို ပြသည်။",
@@ -84,13 +72,6 @@
   "cmd_start_description": "Bot ကို စတင်သည်။",
   "cmd_tban_description": "User တစ်ဦးကို သတ်မှတ်ထားသော အချိန်ကာလအတွင်း chat မှ ယာယီ ban ပြုလုပ်သည်။",
   "cmd_tmute_description": "Chat တွင် user တစ်ဦးကို သတ်မှတ်ထားသော အချိန်ကာလအတွင်း ယာယီ mute ပြုလုပ်သည်။",
-  "cmd_cban_description": "Bot ရှိသော remote group သို့မဟုတ် channel မှ user တစ်ဦးကို ban ပြုလုပ်သည်။",
-  "cmd_ckick_description": "Bot ရှိသော remote group သို့မဟုတ် channel မှ user တစ်ဦးကို kick ပြုလုပ်သည်။",
-  "cmd_cunban_description": "Bot ရှိသော remote group သို့မဟုတ် channel တွင် user တစ်ဦးကို unban ပြုလုပ်သည်။",
-  "cmd_cmute_description": "Bot ရှိသော remote group သို့မဟုတ် channel တွင် user တစ်ဦးကို mute ပြုလုပ်သည်။",
-  "cmd_ctmute_description": "Remote group သို့မဟုတ် channel တွင် user တစ်ဦးကို ယာယီ mute ပြုလုပ်သည်။",
-  "cmd_ctban_description": "Remote group သို့မဟုတ် channel တွင် user တစ်ဦးကို ယာယီ ban ပြုလုပ်သည်။",
-  "cmd_cunmute_description": "Bot ရှိသော remote group သို့မဟုတ် channel တွင် user တစ်ဦးကို unmute ပြုလုပ်သည်။",
   "cmd_token_description": "ပေးထားသော bot token မှ သတင်းအချက်အလက်ကို ရယူသည်။",
   "cmd_tr_description": "Text ကို သတ်မှတ်ထားသော ဘာသာစကားသို့ ဘာသာပြန်သည် (မသတ်မှတ်ပါက chat ၏ မူလဘာသာစကားသို့)။",
   "cmd_unban_description": "User တစ်ဦးကို chat မှ unban ပြုလုပ်သည်။",
@@ -105,48 +86,51 @@
   "cmd_welcome_description": "ကြိုဆိုမှုစာကို ဖွင့် သို့မဟုတ် ပိတ်သည်။",
   "cmd_welcomeformat_description": "ကြိုဆိုမှုစာကို format ပြုလုပ်ရာတွင် ကူညီသည်။",
   "cmd_yt_description": "ပေးထားသော query ဖြင့် YouTube တွင် ရှာဖွေသည်။",
+
   "cmds_category_admin": "👮‍♂️ စီမံခန့်ခွဲမှု",
-  "cmds_category_admin_bans": "🚫 Bans",
-  "cmds_category_admin_mutes": "🔇 Mutes",
-  "cmds_category_admin_pins": "📌 Pins",
-  "cmds_category_admin_misc": "🛠️ Moderation tools",
-  "cmds_category_admin_filters": "🔎 Filters",
-  "cmds_category_admin_notes": "📝 Notes",
-  "cmds_category_admin_rules": "📜 Rules",
-  "cmds_category_admin_welcome": "👋 Welcome",
-  "cmds_category_admin_warns": "⚠️ သတိပေးချက်များ",
-  "cmds_category_remote_moderation": "🌐 အဝေးမှ စီမံခန့်ခွဲမှု",
   "cmds_category_general": "✨ ယေဘုယျ",
   "cmds_category_tools": "🔧 ကိရိယာများ",
   "cmds_list_category_title": "<b>{category}</b> အမျိုးအစားရှိ Commands များ-",
   "cmds_list_group_help": "ရနိုင်သော command များကို ကြည့်ရန် private chat တွင် command ကို သုံးပါ သို့မဟုတ် အောက်ပါ ခလုတ်ကို နှိပ်ပါ။",
   "cmds_list_select_category": "ရနိုင်သော command များကို ကြည့်ရန် အမျိုးအစားတစ်ခု ရွေးချယ်ပါ။",
+
   "details": "<b>{location}</b>-\n\nအပူချိန် - <code>{temperature} °F</code>\nခံစားရသော အပူချိန် - <code>{feels_like} °F</code>\nလေထုစိုထိုင်းမှု - <code>{air_humidity}%</code>\nလေတိုက်နှုန်း - <code>{wind_speed} mph</code>\n\n- <i>{overview}</i>",
+
   "dice_result": "🎲 Dice သည် ဂဏန်း {number} တွင် ရပ်တန့်သွားသည်။",
+
   "dog_woof": "Woof!",
+
   "donate_info": "ဤ project ကို ကြိုက်နှစ်သက်ပြီး အခမဲ့ ဆက်လက်ရှင်သန်ရန် ဆန္ဒရှိပါက အောက်ပါ link ကို နှိပ်ကာ donate ပြုလုပ်ခြင်းဖြင့် ထောက်ပံ့မှုပြသပါ။ မည်သည့်ပမာဏမဆို ကျေးဇူးတင်ပါသည်!\n\nhttps://amanoteam.com/donate",
+
   "filters_add_empty": "Filter အတွက် အကြောင်းအရာကို သတ်မှတ်ပါ။",
   "filters_add_success": "Filter <b>{trigger}</b> ကို ထည့်သွင်းပြီးပါပြီ။",
   "filters_list": "ဤ chat ရှိ Filter များ-\n\n",
   "filters_list_empty": "လောလောဆယ် ဤ chat တွင် filter မရှိသေးပါ။",
   "filters_no_filter_with_name": "<b>{trigger}</b> အမည်ရှိ filter မရှိပါ။",
   "filters_remove_success": "Filter မှ <b>{trigger}</b> ကို ဖယ်ရှားပြီးပါပြီ။",
+
   "general_back_btn": "« နောက်သို့",
   "general_no_results": "ရလဒ်မတွေ့ပါ။",
+
   "getsticker_animated_not_supported": "Animated sticker များကို ထောက်ပံ့မထားပါ။",
   "getsticker_not_sticker": "ဒါ sticker မဟုတ်ပါ။",
   "getsticker_sticker_info": "<b>Emoji:</b> {emoji}\n<b>Sticker ID:</b> <code>{id}</code>",
+
   "gif_usage": "<b>သုံးနည်း:</b> <code>/gif ရှာဖွေမည့်စကားလုံး</code> — Search ရလဒ်များမှ random GIF တစ်ခု ပို့သည်။",
+
   "git_no_username": "Username တစ်ခု သတ်မှတ်ပါ။",
   "git_user_info": "<b>နာမည်</b>- <code>{name}</code>\n<b>Username</b>- <code>{username}</code>\n<b>တည်နေရာ</b>- <code>{location}</code>\n<b>အမျိုးအစား</b>- <code>{type}</code>\n<b>Bio</b>- <code>{bio}</code>",
   "git_user_not_found": "User မတွေ့ပါ။",
+
   "html_send_inline": "HTML format ဖြင့် text ပို့ရန် ဤနေရာကို နှိပ်ပါ။",
   "html_usage": "<b>သုံးနည်း:</b> <code>/html &lt;b&gt;text&lt;/b&gt; in &lt;i&gt;html&lt;/i&gt;</code> — ပေးထားသော text ကို HTML syntax ဖြင့် format ပြုလုပ်သည်။",
+
   "id_info_group": "<b>User သတင်းအချက်အလက်:</b>\n<b>နာမည်:</b> <code>{first_name} {last_name}</code>\n<b>Username:</b> {username}\n<b>ID:</b> <code>{user_id}</code>\n<b>Datacenter:</b> <code>{user_dc}</code>\n<b>ဘာသာစကား:</b> <code>{lang}</code>\n\n<b>Chat သတင်းအချက်အလက်:</b>\n<b>Chat နာမည်:</b> <code>{chat_title}</code>\n<b>Chat username:</b> {chat_username}\n<b>Chat ID:</b> <code>{chat_id}</code>\n<b>Chat datacenter:</b> <code>{chat_dc}</code>\n<b>Chat အမျိုးအစား:</b> <code>{chat_type}</code>\n<b>Message များ:</b> <code>{message_id}</code>",
   "id_info_private": "<b>သတင်းအချက်အလက်:</b>\n<b>နာမည်:</b> <code>{first_name} {last_name}</code>\n<b>Username:</b> {username}\n<b>ID:</b> <code>{user_id}</code>\n<b>Datacenter:</b> <code>{user_dc}</code>\n<b>ဘာသာစကား:</b> <code>{lang}</code>\n<b>Chat အမျိုးအစား:</b> <code>{chat_type}</code>",
   "id_none": "မရှိ",
   "id_unknown": "မသိ",
   "id_user_not_found": "'<code>{user}</code>' အတွက် user မတွေ့ပါ။",
+
   "info_chat_admin": "\nဤ user သည် ဤ chat တွင် '<b>admin အခွင့်အရေး</b>' ရှိသည်။",
   "info_chat_owner": "\nဤ user သည် ဤ chat ၏ '<b>owner</b>' ဖြစ်သည်။",
   "info_first_name": "\nပထမနာမည် - {first_name}",
@@ -156,6 +140,7 @@
   "info_user_not_found": "\n'<code>{user}</code>' အတွက် user မတွေ့ပါ။",
   "info_userlink": "\nUser link - {link}",
   "info_username": "\nUsername - @{username}",
+
   "inline_cmd_faces_description": "Text faces စာရင်းကို ပြသည်။",
   "inline_cmd_html_description": "ပေးထားသော text ကို HTML format ဖြင့် format ပြုလုပ်သည်။",
   "inline_cmd_info_description": "ပေးထားသော user ဆိုင်ရာ သတင်းအချက်အလက်ကို ရယူသည်။",
@@ -166,36 +151,50 @@
   "inline_cmd_weather_description": "ပေးထားသော တည်နေရာ သို့မဟုတ် မြို့၏ ရာသီဥတုသတင်းကို ရယူသည်။",
   "inline_cmds_no_results": "'{query}' အမည်ရှိ command မရှိပါ။",
   "inline_cmds_run_command_button": "🔨 '{query}' ကို Run ပြုလုပ်မည်",
+
   "inline_details": "{overview}၊ အပူချိန် - {temperature} °F၊ ခံစားရသော အပူချိန် - {feels_like} °F၊ လေထုစိုထိုင်းမှု - {air_humidity}%၊ လေတိုက်နှုန်း - {wind_speed} mph",
+
   "kick_cannot_kick_admins": "Admin များကို kick ပြုလုပ်၍မရပါ။",
   "kick_success": "{user} ကို {admin} မှ kick ပြုလုပ်လိုက်ပါပြီ။",
+
   "language_changed_successfully": "ဘာသာစကားကို အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ။",
   "language_changer_chat": "ဤနေရာတွင် chat တစ်ခုလုံးအတွက် bot မှ သုံးသော ဘာသာစကားကို ပြောင်းလဲနိုင်သည်။\nသင်၏ ဘာသာစကားကို ဤနေရာတွင် မတွေ့ပါက ပါဝင်ကူညီလိုပါက @AmanoChat သို့ သွားပါ။",
   "language_changer_private": "ဤနေရာတွင် ဤ private chat အတွက် bot မှ သုံးသော ဘာသာစကားကို ပြောင်းလဲနိုင်သည်။\n\nသင်၏ group ၏ ဘာသာစကားကို ပြောင်းလိုပါက ထို group တွင် <code>/setchatlang</code> command ကို run ပါ။\nသင်၏ ဘာသာစကားကို ဤနေရာတွင် မတွေ့ပါက ပါဝင်ကူညီလိုပါက @AmanoChat သို့ သွားပါ။",
+
   "location_not_found": "တည်နေရာမတွေ့ပါ။",
+
   "mark_usage": "<b>သုံးနည်း:</b> <code>/mark **text** in __markdown__</code> — ပေးထားသော text ကို Markdown syntax ဖြင့် format ပြုလုပ်သည်။",
   "markdown_send_inline": "Markdown format ဖြင့် text ပို့ရန် ဤနေရာကို နှိပ်ပါ။",
   "measurement_unit": "e",
+
   "mute_cannot_mute_admins": "Admin များကို mute ပြုလုပ်၍မရပါ။",
   "mute_success": "{user} ကို {admin} မှ mute ပြုလုပ်လိုက်ပါပြီ။",
+
   "no_location": "တည်နေရာ သို့မဟုတ် မြို့တစ်ခု သတ်မှတ်ပါ။",
+
   "notes_add_empty": "Note အတွက် အကြောင်းအရာကို သတ်မှတ်ပါ။",
   "notes_add_success": "Note <b>{trigger}</b> ကို ထည့်သွင်းပြီးပါပြီ။",
   "notes_list": "ဤ chat ရှိ Note များ-\n\n",
   "notes_list_empty": "လောလောဆယ် ဤ chat တွင် note မရှိသေးပါ။",
   "notes_no_note_with_name": "<b>{trigger}</b> အမည်ရှိ note မရှိပါ။",
   "notes_remove_success": "Note မှ <b>{trigger}</b> ကို ဖယ်ရှားပြီးပါပြီ။",
+
   "parsebtn_err": "URL နှင့် ခလုတ်၏ text ကို သတ်မှတ်ရမည်၊ ဥပမာ - <code>/parsebutton https://google.com text</code>။",
+
   "print_taking_screenshot": "Screenshot ရိုက်နေသည်…",
   "print_usage": "<b>သုံးနည်း:</b> <code>/print https://example.com</code> — သတ်မှတ်ထားသော website ၏ screenshot ရိုက်သည်။",
+
   "purge_in_progress": "Message များ ဖျက်နေသည်…",
   "purge_success": "Message <b>{count}</b> ခု ကို ဖျက်ပြီးပါပြီ။",
+
   "report_admins": "{admins_list}{reported_user} ကို admin များထံ report ပြုလုပ်ပြီးပါပြီ။",
+
   "rules_deleted": "ဤ chat ၏ rules များကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။",
   "rules_empty": "ဤ chat အတွက် rules မသတ်မှတ်ရသေးပါ။",
   "rules_message": "{chat_title} chat ၏ rules များမှာ-\n\n{rules}",
   "rules_set_empty": "Rules များကို သတ်မှတ်ရမည်၊ ဥပမာ - <code>/setrules သင်၏ chat rules</code>။",
   "rules_set_success": "{chat_title} ၏ rules များကို အောင်မြင်စွာ သတ်မှတ်ပြီးပါပြီ။",
+
   "start_add_to_chat_btn": "➕ Chat တစ်ခုတွင် ထည့်သွင်းမည်",
   "start_chat": "🤖 Chat စတင်မည်",
   "start_commands_btn": "📚 Commands",
@@ -204,28 +203,32 @@
   "start_infos_btn": "ℹ️ အကြောင်း",
   "start_language_btn": "🌐 ဘာသာစကား",
   "start_private": "မင်္ဂလာပါ! ကျွန်ုပ်မှာ EduuRobot ဖြစ်သည်။ ကျွန်ုပ်၏ လုပ်ဆောင်ချက်များအကြောင်း ပိုမိုသိရှိရန် အောက်ပါ ခလုတ်များကို နှိပ်ပါ။",
-  "start_updates_btn": "📢 Updates",
-  "start_owner_btn": "👤 Owner",
-  "owner_info": "👤 <b>Group Owner:</b> {owner_name}\n\n{owner_mention}",
-  "owner_not_found": "❌ Group ၏ owner ကို ရှာမတွေ့ပါ။",
+
   "stickerid_string": "ဤ sticker ၏ ID မှာ - <code>{stickerid}</code>",
+
   "sudos_forbidden_command": "တားမြစ်ထားသော command ဖြစ်သည်။",
   "sudos_restarting": "ပြန်လည်စတင်နေသည်…",
   "sudos_speedtest": "<b>Speedtest</b>\n\n<b>🌐 Host:</b> <code>{host}</code>\n\n<b>🏓 Ping:</b> <code>{ping} ms</code>\n<b>⬇️ Download:</b> <code>{download} Mbps</code>\n<b>⬆️ Upload:</b> <code>{upload} Mbps</code>",
+
   "tban_success": "{user} ကို {admin} မှ <b>{time}</b> ကြာအောင် ယာယီ ban ပြုလုပ်လိုက်ပါပြီ။",
   "tmute_success": "{user} ကို {admin} မှ <b>{time}</b> ကြာအောင် ယာယီ mute ပြုလုပ်လိုက်ပါပြီ။",
+
   "token_bot_token_info": "<b>နာမည်</b>- <code>{botname}</code>\n<b>Username</b>- <code>{botusername}</code>\n<b>ID</b>- <code>{botid}</code>",
   "token_bot_token_invalid": "Bot token မမှန်ပါ။",
   "token_no_bot_token": "Bot token တစ်ခု သတ်မှတ်ပါ။",
+
   "tr_inline_send": "{source_lang} မှ {target_lang} သို့ ဘာသာပြန်ခြင်း",
   "tr_translating": "ဘာသာပြန်နေသည်…",
   "tr_translation": "<b>ဘာသာစကား:</b> {source_lang} -> {target_lang}\n<b>ဘာသာပြန်ချက်:</b> <code>{translation}</code>",
   "tr_usage": "<b>သုံးနည်း:</b> <code>/tr &lt;ဘာသာစကား&gt; ဘာသာပြန်မည့် text</code> (Message တစ်ခုကို reply ပြုလုပ်ကာလည်း သုံးနိုင်သည်)။",
+
   "unban_success": "{user} ကို {admin} မှ unban ပြုလုပ်လိုက်ပါပြီ။",
   "unmute_success": "{user} ကို {admin} မှ unmute ပြုလုပ်လိုက်ပါပြီ။",
+
   "user_info_inline_couldnt_find_user": "User မတွေ့ပါ။",
   "user_info_inline_send": "User သတင်းအချက်အလက်အတွက် ဤနေရာကို နှိပ်ပါ။",
   "user_info_inline_string": "Username - {username}\nID - {user_id}\nDC - {user_dc}\nUser link - {user_mention}",
+
   "warn_action_status": "ဤ chat ၏ သတိပေးချက် action မှာ {action} ဖြစ်သည်။",
   "warn_banned": "User {target_user} ကို {warn_count} ကြိမ် သတိပေးခံရသောကြောင့် ban ပြုလုပ်ပြီးပါပြီ။",
   "warn_cant_admin": "Admin များကို သတိပေး၍မရပါ။",
@@ -240,8 +243,10 @@
   "warns_action_set_invlaid": "မှားယွင်းသော argument ဖြစ်သည်။ <code>/setwarnsaction ban/mute/kick</code> ဟု သုံးပါ။",
   "warns_action_set_string": "သတိပေးချက် action ကို {action} သို့ သတ်မှတ်ပြီးပါပြီ။",
   "warns_count_string": "User {target_user} တွင် သတိပေးချက် {warns_count} ခု ရှိသည်။",
+
   "weather_language": "my",
   "weather_usage": "<b>သုံးနည်း:</b> <code>/weather တည်နေရာ သို့မဟုတ် မြို့</code> — <i>တည်နေရာ သို့မဟုတ် မြို့</i> ၏ ရာသီဥတုသတင်းကို ရယူသည်။",
+
   "welcome_default": "မင်္ဂလာပါ {first_name}၊ {chat_title} သို့ ကြိုဆိုပါသည်!",
   "welcome_format_help_msg": "Message ကို HTML format သို့မဟုတ် Telegram ၏ built-in text formatter ဖြင့် format ပြုလုပ်နိုင်သည်။ HTML မှန်ကန်မှုကို စစ်ဆေးရန် /html command ကို သုံးနိုင်သည်။\n\nကြိုဆိုမှုစာတွင် ဤ arguments များကို သုံးနိုင်သည်-\n - <code>{id}</code> ကြိုဆိုမှုစာတွင် user ID ကို ပြရန်\n - <code>{username}</code> ကြိုဆိုမှုစာတွင် user ၏ username ကို ပြရန်။ User ၏ username မရှိပါက bot မှ mention ပြသည်\n - <code>{first_name}</code> ကြိုဆိုမှုစာတွင် user ၏ နာမည်ကို ပြရန်\n - <code>{full_name}</code> သို့မဟုတ် <code>{name}</code> ကြိုဆိုမှုစာတွင် user ၏ နာမည်အပြည့်ကို ပြရန်\n - <code>{mention}</code> ကြိုဆိုမှုစာတွင် user ကို mention ပြုလုပ်ရန်\n - <code>{chat_title}</code> သို့မဟုတ် <code>{title}</code> ကြိုဆိုမှုစာတွင် chat title ကို ပြရန်\n - <code>{count}</code> ကြိုဆိုမှုစာတွင် chat member အရေအတွက်ကို ပြရန်\n\nခလုတ်များ ထည့်သွင်းရန် <code>[ခလုတ် text](buttonurl:ခလုတ် link)</code> ကို သုံးနိုင်သည်။ တစ်ကြောင်းတည်းတွင် ခလုတ်များ ထပ်ထည့်ရန် link ပြီးနောက် :same ထည့်ပါ၊ ဤကဲ့သို့ - <code>[ခလုတ် text](buttonurl:ခလုတ် link:same)</code>။",
   "welcome_mode_disable": "{chat_title} ၏ ကြိုဆိုမှုစာကို ယခု ပိတ်လိုက်ပါပြီ။",
