@@ -42,7 +42,7 @@ def _init_genai():
         return None
 
 
-@Client.on_message(filters.command("ai", PREFIXES) & filters.group)
+@Client.on_message(filters.command("ai", PREFIXES))
 @use_chat_lang
 async def ai_command(c: Client, m: Message, s: Strings):
     """AI command handler - supports both reply and parameter based."""
@@ -78,7 +78,7 @@ async def ai_command(c: Client, m: Message, s: Strings):
 
     try:
         # Build context
-        context = f"{SYSTEM_PROMPT}\n\nContext:\n- User: {m.from_user.mention}\n- Chat: {m.chat.title}\n\nUser message: {input_text}"
+        context = f"{SYSTEM_PROMPT}\n\nContext:\n- User: {m.from_user.mention}\n- Chat: {m.chat.title if m.chat.title else "Direct Message"}\n\nUser message: {input_text}"
 
         # Call Gemini API
         response = client.models.generate_content(
