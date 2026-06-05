@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018-2026 Amano LLC
 
+import logging
+
 from hydrogram import Client, filters
 from hydrogram.enums import ParseMode
 from hydrogram.errors import BadRequest
@@ -11,6 +13,9 @@ from eduu.database.welcome import get_welcome, set_welcome, toggle_welcome
 from eduu.utils import button_parser, commands, get_format_keys
 from eduu.utils.decorators import require_admin, stop_here
 from eduu.utils.localization import Strings, use_chat_lang
+
+logger = logging.getLogger(__name__)
+
 
 
 @Client.on_message(filters.command(["welcomeformat", "start welcome_format_help"], PREFIXES))
@@ -126,12 +131,15 @@ async def reset_welcome_message(c: Client, m: Message, s: Strings):
 @Client.on_message(filters.new_chat_members & filters.group)
 @use_chat_lang
 async def greet_new_members(c: Client, m: Message, s: Strings):
+    logger.info(f"Processing welcome for new members in chat {m.chat.id}")
     if m.new_chat_members[0].is_bot:
         return
+    logger.info(f"Processing welcome for new members in chat {m.chat.id} 2")
 
     welcome, welcome_enabled, media_file_id, media_type = await get_welcome(m.chat.id)
     if not welcome_enabled:
         return
+    logger.info(f"Processing welcome for new members in chat {m.chat.id} 3")
 
     if welcome is None:
         welcome = s("welcome_default")
