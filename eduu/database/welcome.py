@@ -35,8 +35,11 @@ async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str],
     )
     row = await cursor.fetchone()
     if not row:
-        return None, False, None, None
-    return row[0], bool(row[1]), row[2], row[3]
+        return None, True, None, None
+    enabled = row[1]
+    if enabled is None:
+        enabled = True
+    return row[0], bool(enabled), row[2], row[3]
 
 
 async def set_welcome(chat_id: int, welcome: Optional[str], media_file_id: Optional[str] = None, media_type: Optional[str] = None):
