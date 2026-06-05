@@ -38,7 +38,7 @@ async def set_welcome_message(c: Client, m: Message, s: Strings):
     media_file_id = None
     media_type = None
     if src.photo:
-        media_file_id = src.photo[-1].file_id
+        media_file_id = src.photo.file_id
         media_type = "photo"
         message = src.caption or None
     elif src.video:
