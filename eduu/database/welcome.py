@@ -3,20 +3,49 @@
 
 from __future__ import annotations
 
+from typing import Optional, Tuple
+
 from .core import database
 
 conn = database.get_conn()
 
 
-async def get_welcome(chat_id: int) -> tuple[str | None, bool]:
+async def _ensure_columns():
+    """Attempt to add welcome media columns if they don't exist."""
+    try:
+        await conn.execute("ALTER TABLE groups ADD COLUMN welcome_media_file_id TEXT")
+        await conn.commit()
+    except Exception:
+        # Column probably exists
+        pass
+
+    try:
+        await conn.execute("ALTER TABLE groups ADD COLUMN welcome_media_type TEXT")
+        await conn.commit()
+    except Exception:
+        pass
+
+
+async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str], Optional[str]]:
+    """Return (welcome_text, welcome_enabled, media_file_id, media_type)."""
+    await _ensure_columns()
     cursor = await conn.execute(
-        "SELECT welcome, welcome_enabled FROM groups WHERE chat_id = (?)", (chat_id,)
+        "SELECT welcome, welcome_enabled, welcome_media_file_id, welcome_media_type FROM groups WHERE chat_id = (?)",
+        (chat_id,),
     )
-    return await cursor.fetchone()
+    row = await cursor.fetchone()
+    if not row:
+        return None, False, None, None
+    return row[0], bool(row[1]), row[2], row[3]
 
 
-async def set_welcome(chat_id: int, welcome: str | None):
-    await conn.execute("UPDATE groups SET welcome = ? WHERE chat_id = ?", (welcome, chat_id))
+async def set_welcome(chat_id: int, welcome: Optional[str], media_file_id: Optional[str] = None, media_type: Optional[str] = None):
+    """Set welcome text and optional media for a chat."""
+    await _ensure_columns()
+    await conn.execute(
+        "UPDATE groups SET welcome = ?, welcome_media_file_id = ?, welcome_media_type = ? WHERE chat_id = ?",
+        (welcome, media_file_id, media_type, chat_id),
+    )
     await conn.commit()
 
 
