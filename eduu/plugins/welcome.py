@@ -119,7 +119,7 @@ async def disable_welcome_message(c: Client, m: Message, s: Strings):
 @require_admin(ChatPrivileges(can_change_info=True))
 @use_chat_lang
 async def reset_welcome_message(c: Client, m: Message, s: Strings):
-    await set_welcome(m.chat.id, None)
+    await set_welcome(m.chat.id, None, None, None)
     await m.reply_text(s("welcome_reset").format(chat_title=m.chat.title))
 
 

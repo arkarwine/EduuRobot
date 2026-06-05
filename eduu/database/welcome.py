@@ -42,10 +42,22 @@ async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str],
 async def set_welcome(chat_id: int, welcome: Optional[str], media_file_id: Optional[str] = None, media_type: Optional[str] = None):
     """Set welcome text and optional media for a chat."""
     await _ensure_columns()
-    await conn.execute(
-        "UPDATE groups SET welcome = ?, welcome_media_file_id = ?, welcome_media_type = ? WHERE chat_id = ?",
-        (welcome, media_file_id, media_type, chat_id),
-    )
+    # Fetch current row to preserve other columns
+    cursor = await conn.execute("SELECT * FROM groups WHERE chat_id = ?", (chat_id,))
+    row = await cursor.fetchone()
+    
+    if row:
+        # Row exists, just update the welcome columns
+        await conn.execute(
+            "UPDATE groups SET welcome = ?, welcome_media_file_id = ?, welcome_media_type = ? WHERE chat_id = ?",
+            (welcome, media_file_id, media_type, chat_id),
+        )
+    else:
+        # Row doesn't exist, create it with defaults
+        await conn.execute(
+            "INSERT INTO groups (chat_id, welcome, welcome_enabled, welcome_media_file_id, welcome_media_type) VALUES (?, ?, ?, ?, ?)",
+            (chat_id, welcome, True, media_file_id, media_type),
+        )
     await conn.commit()
 
 
