@@ -53,5 +53,8 @@ UPDATES_CHANNEL: str = ""
 # Owner username or URL (e.g., "@username" or full URL)
 OWNER_URL: str = ""
 
+# Image URL to show on /start in private chats
+START_IMG_URL: str = ""
+
 # List of disabled plugins
 DISABLED_PLUGINS: List[str] = []

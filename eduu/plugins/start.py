@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from hydrogram import Client, filters
-from hydrogram.enums import ChatMembersFilter, ChatMemberStatus
+from hydrogram.enums import ChatMembersFilter, ChatMemberStatus, ParseMode
 from hydrogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -12,7 +12,7 @@ from hydrogram.types import (
     Message,
 )
 
-from config import PREFIXES, UPDATES_CHANNEL, OWNER_URL
+from config import PREFIXES, START_IMG_URL, UPDATES_CHANNEL, OWNER_URL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
 from eduu.utils.localization import Strings, use_chat_lang
@@ -37,17 +37,36 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
         ],
         [
             InlineKeyboardButton(s("start_updates_btn"), url=UPDATES_CHANNEL),
-            InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL)
+            InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL),
         ],
         [
             InlineKeyboardButton(
                 s("start_add_to_chat_btn"),
                 url=f"https://t.me/{c.me.username}?startgroup=new",
-            ),]
+            ),
+        ]
     ]
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await send(s("start_private"), reply_markup=keyboard)
+    start_text = s("start_private")
+
+    if isinstance(m, CallbackQuery):
+        await send(start_text, reply_markup=keyboard)
+        return
+
+    if START_IMG_URL:
+        try:
+            await m.reply_photo(
+                START_IMG_URL,
+                caption=start_text,
+                reply_markup=keyboard,
+                parse_mode=ParseMode.HTML,
+            )
+            return
+        except Exception:
+            pass
+
+    await send(start_text, reply_markup=keyboard)
 
 
 @Client.on_message(filters.command("start", PREFIXES) & filters.group, group=2)
