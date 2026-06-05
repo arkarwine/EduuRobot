@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 from hydrogram import Client, filters
-from hydrogram.enums import ChatPermissions, ChatType
+from hydrogram.enums import ChatType
 from hydrogram.errors import BadRequest
-from hydrogram.types import Message
+from hydrogram.types import ChatPermissions, Message
 
 from config import PREFIXES
 from eduu.utils import commands, extract_time, get_reason_text, sudofilter
