@@ -6,7 +6,7 @@ from __future__ import annotations
 from hydrogram import Client, filters
 from hydrogram.enums import ChatType
 from hydrogram.errors import BadRequest
-from hydrogram.types import Message
+from hydrogram.types import Message, ChatPermissions
 
 from config import PREFIXES
 from eduu.utils import commands, get_reason_text, sudofilter
@@ -14,7 +14,7 @@ from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.localization import Strings, use_chat_lang
 from .remote_utils import _resolve_chat, _resolve_user, _get_target_info, _get_reason_text
 from eduu.utils import extract_time
-from hydrogram.enums import ChatPermissions
+
 
 
 @Client.on_message(filters.command("cmute", PREFIXES) & sudofilter)
