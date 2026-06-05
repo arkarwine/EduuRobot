@@ -56,6 +56,8 @@ class Eduu(Client):
             f"<b>Version number:</b> <code>r{__version_number__} ({__commit__})</code>\n"
             f"<b>Hydrogram:</b> <code>v{hydrogram.__version__}</code>"
         )
+        
+        self.set_allowed_updates
 
         try:
             await self.send_message(chat_id=LOG_CHAT, text=start_message)

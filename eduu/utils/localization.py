@@ -120,7 +120,7 @@ def use_chat_lang[T](
 
     async def wrapper(
         client: Client,
-        message: CallbackQuery | Message | InlineQuery,
+        message: CallbackQuery | Message | InlineQuery | ChatMemberUpdated,
         *args,
         **kwargs,
     ) -> T:

@@ -55,20 +55,29 @@ async def ai_command(c: Client, m: Message, s: Strings):
     # Get the input text
     input_text = None
 
-    # Try reply-based first
+    # Get reply text if available
+    reply_text = None
     if m.reply_to_message:
         if m.reply_to_message.text:
-            input_text = m.reply_to_message.text
+            reply_text = m.reply_to_message.text
         elif m.reply_to_message.caption:
-            input_text = m.reply_to_message.caption
+            reply_text = m.reply_to_message.caption
 
-    # If no reply text, try command parameters
-    if not input_text:
-        if len(m.command) > 1:
-            input_text = " ".join(m.command[1:])
-        else:
-            await m.reply_text(s("ai_no_input"))
-            return
+    # Get command parameters if available
+    param_text = None
+    if len(m.command) > 1:
+        param_text = " ".join(m.command[1:])
+
+    # Combine both if available, otherwise use whichever is available
+    if reply_text and param_text:
+        input_text = f"{reply_text}\n\n{param_text}"
+    elif reply_text:
+        input_text = reply_text
+    elif param_text:
+        input_text = param_text
+    else:
+        await m.reply_text(s("ai_no_input"))
+        return
 
     if not input_text or not input_text.strip():
         await m.reply_text(s("ai_no_input"))
@@ -78,8 +87,27 @@ async def ai_command(c: Client, m: Message, s: Strings):
     await c.send_chat_action(m.chat.id, ChatAction.TYPING)
 
     try:
-        # Build context
-        context = f"{SYSTEM_PROMPT}\n\nContext:\n- User: {m.from_user.mention}\n- Chat: {m.chat.title if m.chat.title else "Direct Message"}\n\nUser message: {input_text}"
+        # Build context with separate user info for each input
+        context_parts = [SYSTEM_PROMPT, "\nContext:"]
+        
+        # Add reply user context if available
+        if reply_text:
+            reply_user = m.reply_to_message.from_user.mention if m.reply_to_message.from_user else "Unknown"
+            context_parts.append(f"- Replied User: {reply_user}")
+            context_parts.append(f"- Replied Message: {reply_text}")
+        
+        # Add current user context if param text is provided
+        if param_text:
+            context_parts.append(f"- Current User: {m.from_user.mention}")
+            context_parts.append(f"- Current Message: {param_text}")
+        elif reply_text:
+            # If only reply text, still add current user context
+            context_parts.append(f"- User: {m.from_user.mention}")
+        
+        context_parts.append(f"- Chat: {m.chat.title if m.chat.title else 'Direct Message'}")
+        context_parts.append(f"\nFull context:\n{input_text}")
+        
+        context = "\n".join(context_parts)
 
         # Call Gemini API
         response = client.models.generate_content(
