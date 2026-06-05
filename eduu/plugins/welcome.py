@@ -32,7 +32,7 @@ _welcomed: dict[tuple, float] = {}
 
 def _already_welcomed(chat_id: int, user_id: int) -> bool:
     key = (chat_id, user_id)
-    now = time.time()
+    now = time()
     if key in _welcomed and now - _welcomed[key] < 5:
         return True
     _welcomed[key] = now
