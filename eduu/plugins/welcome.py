@@ -6,7 +6,7 @@ import logging
 from hydrogram import Client, filters
 from hydrogram.enums import ParseMode
 from hydrogram.errors import BadRequest
-from hydrogram.types import ChatPrivileges, InlineKeyboardMarkup, Message
+from hydrogram.types import ChatMemberUpdated, ChatPrivileges, InlineKeyboardMarkup, Message
 
 from config import PREFIXES
 from eduu.database.welcome import get_welcome, set_welcome, toggle_welcome
@@ -127,57 +127,68 @@ async def reset_welcome_message(c: Client, m: Message, s: Strings):
     await set_welcome(m.chat.id, None, None, None)
     await m.reply_text(s("welcome_reset").format(chat_title=m.chat.title))
 
+NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 
-@Client.on_message(filters.new_chat_members & filters.group)
+@Client.on_chat_member_updated()
 @use_chat_lang
-async def greet_new_members(c: Client, m: Message, s: Strings):
-    logger.info(f"Processing welcome for new members in chat {m.chat.id}")
-    if m.new_chat_members[0].is_bot:
-        return
-    logger.info(f"Processing welcome for new members in chat {m.chat.id} 2")
+async def debug_member_update(c: Client, update: ChatMemberUpdated, s: Strings):
+    logger.info(f"chat_member_updated fired in {update.chat.id}")
+    logger.info(f"old: {update.old_chat_member}")
+    logger.info(f"new: {update.new_chat_member}")
+    if update.old_chat_member:
+        logger.info(f"old status: {repr(update.old_chat_member.status)}")
+    if update.new_chat_member:
+        logger.info(f"new status: {repr(update.new_chat_member.status)}")
+    # Only handle actual joins
+    old_status = update.old_chat_member.status.value if update.old_chat_member else "left"
+    new_status = update.new_chat_member.status.value if update.new_chat_member else "left"
 
-    welcome, welcome_enabled, media_file_id, media_type = await get_welcome(m.chat.id)
+    if old_status not in NON_MEMBER_STATUSES or new_status not in ("member", "administrator", "owner"):
+        return
+
+    user = update.new_chat_member.user
+    if user.is_bot:
+        return
+
+    logger.info(f"Processing welcome for new member {user.id} in chat {update.chat.id}")
+
+    welcome, welcome_enabled, media_file_id, media_type = await get_welcome(update.chat.id)
     if not welcome_enabled:
         return
-    logger.info(f"Processing welcome for new members in chat {m.chat.id} 3")
 
     if welcome is None:
         welcome = s("welcome_default")
 
     if "count" in get_format_keys(welcome):
-        count = await c.get_chat_members_count(m.chat.id)
+        count = await c.get_chat_members_count(update.chat.id)
     else:
         count = 0
 
-    chat_title = m.chat.title
-    members = m.new_chat_members
-    mention = ", ".join(a.mention for a in members)
-    username = ", ".join(f"@{a.username}" if a.username else a.mention for a in members)
+    chat_title = update.chat.title
+    mention = user.mention
+    username = f"@{user.username}" if user.username else user.mention
+    user_id = str(user.id)
+    full_name = f"{user.first_name} " + (user.last_name or "")
+    first_name = user.first_name
 
-    user_id = ", ".join(str(a.id) for a in members)
-    full_name = ", ".join(f"{a.first_name} " + (a.last_name or "") for a in members)
-
-    first_name = ", ".join(a.first_name for a in members)
     welcome = (welcome or s("welcome_default")).format(
         id=user_id,
         username=username,
         mention=mention,
         first_name=first_name,
-        # full_name and name are the same
         full_name=full_name,
         name=full_name,
-        # title and chat_title are the same
         title=chat_title,
         chat_title=chat_title,
         count=count,
     )
     welcome, welcome_buttons = button_parser(welcome)
-    # Send media if configured
-    reply_markup = InlineKeyboardMarkup(welcome_buttons) if len(welcome_buttons) != 0 else None
+    reply_markup = InlineKeyboardMarkup(welcome_buttons) if welcome_buttons else None
+
     try:
         if media_file_id and media_type == "photo":
             await c.send_photo(
-                chat_id=m.chat.id,
+                chat_id=update.chat.id,
                 photo=media_file_id,
                 caption=welcome,
                 reply_markup=reply_markup,
@@ -186,7 +197,7 @@ async def greet_new_members(c: Client, m: Message, s: Strings):
             return
         if media_file_id and media_type == "video":
             await c.send_video(
-                chat_id=m.chat.id,
+                chat_id=update.chat.id,
                 video=media_file_id,
                 caption=welcome,
                 reply_markup=reply_markup,
@@ -194,15 +205,15 @@ async def greet_new_members(c: Client, m: Message, s: Strings):
             )
             return
     except Exception:
-        # Fallback to text if media send fails
         pass
 
-    await m.reply_text(
-        welcome,
+    await c.send_message(
+        chat_id=update.chat.id,
+        text=welcome,
         disable_web_page_preview=True,
         reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML,
     )
-
 
 commands.add_command("resetwelcome", "admin")
 commands.add_command("setwelcome", "admin")

@@ -31,6 +31,7 @@ class Eduu(Client):
             workers=WORKERS,
             plugins={"root": "eduu.plugins", "exclude": DISABLED_PLUGINS},
             sleep_threshold=180,
+            
         )
 
     async def start(self):
