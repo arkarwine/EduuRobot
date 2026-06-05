@@ -60,7 +60,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
                 await c.forward_messages(
                     chat_id=chat_id,
                     from_chat_id=source_message.chat.id,
-                    message_id=source_message.id,
+                    message_ids=[source_message.id],
                 )
                 successful += 1
             except (BadRequest, Forbidden):
