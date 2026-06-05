@@ -3,6 +3,7 @@
 
 from hydrogram import Client, filters
 from hydrogram.types import Message
+from hydrogram.enums import ChatAction
 
 from config import PREFIXES, GEMINI_API_KEY
 from eduu.utils import commands
@@ -74,7 +75,7 @@ async def ai_command(c: Client, m: Message, s: Strings):
         return
 
     # Send typing indicator
-    await c.send_chat_action(m.chat.id, "typing")
+    await c.send_chat_action(m.chat.id, ChatAction.TYPING)
 
     try:
         # Build context
