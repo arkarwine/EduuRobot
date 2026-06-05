@@ -24,6 +24,64 @@ logger = logging.getLogger(__name__)
 @stop_here
 async def welcome_format_message_help(c: Client, m: Message, s: Strings):
     await m.reply_text(s("welcome_format_help_msg"))
+    
+
+@Client.on_message(filters.command("setwelcome", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def set_welcome_message(c: Client, m: Message, s: Strings):
+    # Make this reply-based: reply to a message to set welcome text or media
+    if not m.reply_to_message:
+        await m.reply_text(
+            s("welcome_set_empty").format(bot_username=c.me.username),
+            disable_web_page_preview=True,
+        )
+        return
+
+    src = m.reply_to_message
+
+    # Determine media or text
+    media_file_id = None
+    media_type = None
+    if src.photo:
+        media_file_id = src.photo.file_id
+        media_type = "photo"
+        message = src.caption or None
+    elif src.video:
+        media_file_id = src.video.file_id
+        media_type = "video"
+        message = src.caption or None
+    else:
+        # Use text or caption
+        message = src.text or src.caption or None
+
+    if not message and not media_file_id:
+        await m.reply_text(s("welcome_set_empty").format(bot_username=c.me.username))
+        return
+
+    # Validate/preview formatted message
+    preview = message or ""
+    try:
+        preview_formatted = preview.format(
+            id=m.from_user.id,
+            username=m.from_user.username,
+            mention=m.from_user.mention,
+            first_name=m.from_user.first_name,
+            full_name=m.from_user.full_name,
+            name=m.from_user.first_name,
+            title=m.chat.title,
+            chat_title=m.chat.title,
+            count=(await c.get_chat_members_count(m.chat.id)),
+        ) if preview else ""
+        sent = await m.reply_text(preview_formatted or s("welcome_set_success"))
+    except (KeyError, BadRequest) as e:
+        await m.reply_text(s("welcome_set_error").format(error=f"{e.__class__.__name__}: {e!s}"))
+        return
+
+    # Persist welcome text and media
+    await set_welcome(m.chat.id, message, media_file_id, media_type)
+    await sent.edit_text(s("welcome_set_success").format(chat_title=m.chat.title))
+
 
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
