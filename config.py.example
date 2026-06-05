@@ -21,6 +21,11 @@ API_HASH: str = "YOUR_API_HASH_HERE"
 # Can be empty (but the /gif command won't work without it)
 TENOR_API_KEY: str = ""
 
+# Google Gemini API key
+# Get it from https://aistudio.google.com/app/apikey
+# Can be empty (but the /ai command won't work without it)
+GEMINI_API_KEY: str = ""
+
 
 # Admins/sudoers settings
 

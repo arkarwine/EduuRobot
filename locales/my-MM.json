@@ -14,6 +14,10 @@
   "antichannelpin_status_disabled": "ဤ chat တွင် anti channel pin ကို လောလောဆယ် ပိတ်ထားသည်။",
   "antichannelpin_status_enabled": "ဤ chat တွင် anti channel pin ကို လောလောဆယ် ဖွင့်ထားသည်။",
 
+  "ai_error": "❌ Error - {error}",
+  "ai_empty_response": "🤔 AI သည် အလွတ်အဖြေ ပြန်ပေးလိုက်သည်။ ထပ်မံကြိုးစားပါ။",
+  "ai_no_input": "💬 Message ကို reply ပြုလုပ်ပါ သို့မဟုတ် parameter အဖြစ် text ပေးပါ။\n\n<code>/ai သင်၏ အမေးအမြန်း</code>",
+  "ai_no_service": "❌ AI service မရရှိပါ။ API key ကို စစ်ဆေးပါ သို့မဟုတ် google-genai package ကို install ပြုလုပ်ပါ။",
   "ban_cannot_ban_admins": "Admin များကို ban ပြုလုပ်၍မရပါ။",
   "ban_success": "{user} ကို {admin} မှ ban ပြုလုပ်လိုက်ပါပြီ။",
 
@@ -29,6 +33,7 @@
   "cleanservice_status_disabled": "ဤ chat တွင် service message ဖျက်ခြင်းကို လောလောဆယ် ပိတ်ထားသည်။",
   "cleanservice_status_enabled": "ဤ chat တွင် service message ဖျက်ခြင်းကို လောလောဆယ် ဖွင့်ထားသည်။",
 
+  "cmd_ai_description": "AI ကို အမေးအမြန်းများ ပေးမည်။ Message ကို reply ပြုလုပ်ပါ သို့မဟုတ် text အဖြစ် parameter ပေးပါ။",
   "cmd_admins_description": "Chat ၏ admin များစာရင်းကို ပြသည်။",
   "cmd_antichannelpin_description": "Chat နှင့် ချိတ်ဆက်ထားသော channel မှ pin ပြုလုပ်ထားသော message များကို အလိုအလျောက် unpin ပြုလုပ်သည်။",
   "cmd_ban_description": "User တစ်ဦးကို chat မှ ban ပြုလုပ်သည်။",
