@@ -328,7 +328,7 @@ async def debug_member_update(c: Client, update: ChatMemberUpdated, s: Strings):
         parse_mode=ParseMode.HTML,
     )
 
-commands.add_command("resetwelcome", "admin")
-commands.add_command("setwelcome", "admin")
-commands.add_command("welcome", "admin")
-commands.add_command("welcomeformat", "admin")
+commands.add_command("resetwelcome", "admin_welcome")
+commands.add_command("setwelcome", "admin_welcome")
+commands.add_command("welcome", "admin_welcome")
+commands.add_command("welcomeformat", "admin_welcome")

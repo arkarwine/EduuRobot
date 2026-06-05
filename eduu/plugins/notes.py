@@ -151,6 +151,6 @@ async def note_by_get_command(c: Client, m: Message):
     await serve_note(c, targeted_message, txt=note_data)
 
 
-commands.add_command("delnote", "admin")
-commands.add_command("note", "admin")
+commands.add_command("delnote", "admin_notes")
+commands.add_command("note", "admin_notes")
 commands.add_command("notes", "general")

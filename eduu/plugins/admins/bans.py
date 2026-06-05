@@ -96,7 +96,7 @@ async def tban(c: Client, m: Message, s: Strings):
     )
 
 
-commands.add_command("ban", "admin")
-commands.add_command("kick", "admin")
-commands.add_command("tban", "admin")
-commands.add_command("unban", "admin")
+commands.add_command("ban", "admin_bans")
+commands.add_command("kick", "admin_bans")
+commands.add_command("tban", "admin_bans")
+commands.add_command("unban", "admin_bans")

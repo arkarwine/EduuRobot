@@ -132,8 +132,8 @@ async def set_warns_action_cmd(c: Client, m: Message, s: Strings):
     await m.reply_text(s("warns_action_set_string").format(action=warn_action_txt))
 
 
-commands.add_command("warn", "admin")
-commands.add_command("setwarnslimit", "admin")
-commands.add_command("resetwarns", "admin")
-commands.add_command("warns", "admin")
-commands.add_command("setwarnsaction", "admin")
+commands.add_command("warn", "admin_warns")
+commands.add_command("setwarnslimit", "admin_warns")
+commands.add_command("resetwarns", "admin_warns")
+commands.add_command("warns", "admin_warns")
+commands.add_command("setwarnsaction", "admin_warns")

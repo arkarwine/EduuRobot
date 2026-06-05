@@ -66,7 +66,7 @@ async def unpinall(c: Client, m: Message):
     await c.unpin_all_chat_messages(m.chat.id)
 
 
-commands.add_command("antichannelpin", "admin")
-commands.add_command("pin", "admin")
-commands.add_command("unpin", "admin")
-commands.add_command("unpinall", "admin")
+commands.add_command("antichannelpin", "admin_pins")
+commands.add_command("pin", "admin_pins")
+commands.add_command("unpin", "admin_pins")
+commands.add_command("unpinall", "admin_pins")

@@ -70,5 +70,5 @@ async def delservice_action(c: Client, m: Message):
         await m.delete()
 
 
-commands.add_command("cleanservice", "admin")
-commands.add_command("purge", "admin")
+commands.add_command("cleanservice", "admin_misc")
+commands.add_command("purge", "admin_misc")

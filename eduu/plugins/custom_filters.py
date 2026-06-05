@@ -137,6 +137,6 @@ async def serve_filter(c: Client, m: Message):
             )
 
 
-commands.add_command("delfilter", "admin")
-commands.add_command("filter", "admin")
+commands.add_command("delfilter", "admin_filters")
+commands.add_command("filter", "admin_filters")
 commands.add_command("filters", "general")

@@ -65,6 +65,6 @@ async def show_rules_pvt(c: Client, m: Message, s: Strings):
     )
 
 
-commands.add_command("setrules", "admin")
-commands.add_command("resetrules", "admin")
-commands.add_command("rules", "admin")
+commands.add_command("setrules", "admin_rules")
+commands.add_command("resetrules", "admin_rules")
+commands.add_command("rules", "admin_rules")
