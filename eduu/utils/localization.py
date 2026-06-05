@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hydrogram.enums import ChatType
-from hydrogram.types import CallbackQuery, InlineQuery, Message
+from hydrogram.types import CallbackQuery, ChatMemberUpdated, InlineQuery, Message
 
 from eduu.database.localization import get_db_lang
 
@@ -77,8 +77,7 @@ def get_locale_string(
 
 Strings = Callable[[str], str]
 
-
-async def get_lang(message: CallbackQuery | Message | InlineQuery) -> str:
+async def get_lang(message: CallbackQuery | Message | InlineQuery | ChatMemberUpdated) -> str:
     if isinstance(message, CallbackQuery):
         chat = message.message.chat if message.message else message.from_user
         chat_type = message.message.chat.type if message.message else ChatType.PRIVATE
@@ -88,13 +87,17 @@ async def get_lang(message: CallbackQuery | Message | InlineQuery) -> str:
     elif isinstance(message, InlineQuery):
         chat = message.from_user
         chat_type = ChatType.PRIVATE
+    elif isinstance(message, ChatMemberUpdated):
+        chat = message.chat
+        chat_type = message.chat.type
     else:
-        raise TypeError(f"Update type '{message.__name__}' is not supported.")
-
+        raise TypeError(f"Update type '{type(message).__name__}' is not supported.")  # fix this too
+    
     lang = await get_db_lang(chat.id, chat_type)
 
     if chat_type == ChatType.PRIVATE:
-        lang = lang or message.from_user.language_code or default_language
+        # ChatMemberUpdated in groups won't have from_user always, guard it
+        lang = lang or (getattr(message, "from_user", None) and message.from_user.language_code) or default_language
     else:
         lang = lang or default_language
     # User has a language_code without hyphen
