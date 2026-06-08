@@ -206,6 +206,7 @@
   "start_private": "မင်္ဂလာပါ! ကျွန်ုပ်မှာ EduuRobot ဖြစ်သည်။ ကျွန်ုပ်၏ လုပ်ဆောင်ချက်များအကြောင်း ပိုမိုသိရှိရန် အောက်ပါ ခလုတ်များကို နှိပ်ပါ။",
   "start_updates_btn": "📢 Updates",
   "start_owner_btn": "👤 Owner",
+  "start_support_group_btn": "💬 Support group",
   "owner_info": "👤 <b>Group Owner:</b> {owner_name}\n\n{owner_mention}",
   "owner_not_found": "❌ Group ၏ owner ကို ရှာမတွေ့ပါ။",
   "stickerid_string": "ဤ sticker ၏ ID မှာ - <code>{stickerid}</code>",

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import config
+
 from hydrogram import Client, filters
 from hydrogram.enums import ChatMembersFilter, ChatMemberStatus, ParseMode
 from hydrogram.types import (
@@ -12,7 +14,7 @@ from hydrogram.types import (
     Message,
 )
 
-from config import PREFIXES, START_IMG_URL, UPDATES_CHANNEL, OWNER_URL
+from config import OWNER_URL, PREFIXES, START_IMG_URL, UPDATES_CHANNEL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
 from eduu.utils.localization import Strings, use_chat_lang
@@ -46,6 +48,11 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
             ),
         ]
     ]
+
+    if support_group := getattr(config, "SUPPORT_GROUP", ""):
+        buttons.append(
+            [InlineKeyboardButton(s("start_support_group_btn"), url=support_group)]
+        )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     start_text = s("start_private")

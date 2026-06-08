@@ -58,6 +58,9 @@ UPDATES_CHANNEL: str = ""
 # Owner username or URL (e.g., "@username" or full URL)
 OWNER_URL: str = ""
 
+# Support group username or URL (e.g., "@groupname" or full URL)
+SUPPORT_GROUP: str = ""
+
 # Image URL to show on /start in private chats
 START_IMG_URL: str = ""
 
