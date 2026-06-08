@@ -25,7 +25,7 @@ enabled_locales: list[str] = [
     "my-MM",  # Burmese (Myanmar)
 ]
 
-default_language: str = "en-US"
+default_language: str = "my-MM"
 
 
 def cache_locales(locales: list[str]) -> dict[str, dict[str, str]]:
