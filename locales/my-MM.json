@@ -28,6 +28,7 @@
   "remote_mod_user_not_found": "ရည်ညွှန်းသော user ကို ရှာမတွေ့ပါ - <code>{user}</code>။",
   "remote_mod_usage": "သုံးနည်း - /{command} <chat_id|@username> <user_id|@username> [အကြောင်းပြချက်]",
   "remote_mod_time_usage": "သုံးနည်း - /{command} <chat_id|@username> <user_id|@username> <အချိန်> [အကြောင်းပြချက်]",
+  "remote_mod_action_failed": "Remote moderation action ကို ပြီးမြောက်အောင် မလုပ်ဆောင်နိုင်ပါ။ Error - <code>{error}</code>။",
   "bug_report_empty": "Report ပြုလုပ်မည့် bug ကို သတ်မှတ်ရမည်၊ ဥပမာ - <code>/bug သင်၏ bug</code>။",
   "bug_report_failed": "Error - Bot ၏ admin များထံ bug report ပေးပို့၍မရပါ။",
   "bug_report_success": "Bug ကို အောင်မြင်စွာ report ပြုလုပ်ပြီးပါပြီ။",

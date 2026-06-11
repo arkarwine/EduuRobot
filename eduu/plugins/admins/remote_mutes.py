@@ -4,17 +4,21 @@
 from __future__ import annotations
 
 from hydrogram import Client, filters
-from hydrogram.enums import ChatType
-from hydrogram.errors import BadRequest
-from hydrogram.types import Message, ChatPermissions
+from hydrogram.enums import ParseMode
+from hydrogram.errors import BadRequest, RPCError
+from hydrogram.types import ChatPermissions, Message
 
 from config import PREFIXES
-from eduu.utils import commands, get_reason_text, sudofilter
+from eduu.utils import commands, extract_time, get_reason_text, sudofilter
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.localization import Strings, use_chat_lang
-from .remote_utils import _resolve_chat, _resolve_user, _get_target_info, _get_reason_text
-from eduu.utils import extract_time
-
+from .remote_utils import (
+    _format_chat_title,
+    _format_reason,
+    _get_reason_text,
+    _get_target_info,
+    _reply_remote_action_failed,
+)
 
 
 @Client.on_message(filters.command("cmute", PREFIXES) & sudofilter)
@@ -34,35 +38,32 @@ async def cmute(c: Client, m: Message, s: Strings):
         return
 
     reason = get_reason_text(c, m)
-    await target_chat.restrict_member(target_user.id, ChatPermissions(can_send_messages=False))
+    try:
+        await target_chat.restrict_member(target_user.id, ChatPermissions(can_send_messages=False))
+    except RPCError as e:
+        await _reply_remote_action_failed(m, s, e)
+        return
 
     text = s("cmute_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
-        chat_title=target_chat.title or target_chat.username or str(target_chat.id),
+        chat_title=_format_chat_title(target_chat),
     )
-    if reason:
-        await m.reply_text(text + "\n" + s("admins_reason_string").format(reason_text=reason))
-    else:
-        await m.reply_text(text)
+    await m.reply_text(text + _format_reason(reason, s))
 
 
 @Client.on_message(filters.command("ctmute", PREFIXES) & sudofilter)
 @use_chat_lang
 async def ctmute(c: Client, m: Message, s: Strings):
     if len(m.command) < 4:
-        await m.reply_text(s("remote_mod_time_usage").format(command=m.command[0]))
+        await m.reply_text(
+            s("remote_mod_time_usage").format(command=m.command[0]),
+            parse_mode=ParseMode.DISABLED,
+        )
         return
 
-    target_chat = await _resolve_chat(c, m.command[1])
-    if not target_chat or target_chat.type == ChatType.PRIVATE:
-        await m.reply_text(s("remote_mod_chat_not_found").format(chat=m.command[1]))
-        return
-
-    try:
-        target_user = await _resolve_user(c, m.command[2])
-    except Exception:
-        await m.reply_text(s("remote_mod_user_not_found").format(user=m.command[2]))
+    target_chat, target_user = await _get_target_info(c, m, s)
+    if not target_chat or not target_user:
         return
 
     try:
@@ -79,22 +80,23 @@ async def ctmute(c: Client, m: Message, s: Strings):
         return
 
     reason = _get_reason_text(m, 4)
-    await target_chat.restrict_member(
-        target_user.id,
-        ChatPermissions(can_send_messages=False),
-        until_date=mute_time,
-    )
+    try:
+        await target_chat.restrict_member(
+            target_user.id,
+            ChatPermissions(can_send_messages=False),
+            until_date=mute_time,
+        )
+    except RPCError as e:
+        await _reply_remote_action_failed(m, s, e)
+        return
 
     text = s("ctmute_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
-        chat_title=target_chat.title or target_chat.username or str(target_chat.id),
+        chat_title=_format_chat_title(target_chat),
         time=m.command[3],
     )
-    if reason:
-        await m.reply_text(text + "\n" + s("admins_reason_string").format(reason_text=reason))
-    else:
-        await m.reply_text(text)
+    await m.reply_text(text + _format_reason(reason, s))
 
 
 @Client.on_message(filters.command("cunmute", PREFIXES) & sudofilter)
@@ -105,17 +107,18 @@ async def cunmute(c: Client, m: Message, s: Strings):
         return
 
     reason = get_reason_text(c, m)
-    await target_chat.unban_member(target_user.id)
+    try:
+        await target_chat.unban_member(target_user.id)
+    except RPCError as e:
+        await _reply_remote_action_failed(m, s, e)
+        return
 
     text = s("cunmute_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
-        chat_title=target_chat.title or target_chat.username or str(target_chat.id),
+        chat_title=_format_chat_title(target_chat),
     )
-    if reason:
-        await m.reply_text(text + "\n" + s("admins_reason_string").format(reason_text=reason))
-    else:
-        await m.reply_text(text)
+    await m.reply_text(text + _format_reason(reason, s))
 
 
 commands.add_command("cmute", "remote_moderation")
