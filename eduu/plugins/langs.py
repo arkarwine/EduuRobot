@@ -18,6 +18,7 @@ from eduu.database.localization import set_db_lang
 from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, langdict, use_chat_lang
+from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 
 def gen_langs_kb():
@@ -48,10 +49,8 @@ async def chlang(c: Client, m: CallbackQuery | Message, s: Strings):
 
     if isinstance(m, CallbackQuery):
         msg = m.message
-        sender = msg.edit_text
     else:
         msg = m
-        sender = msg.reply_text
 
     res = (
         s("language_changer_private")
@@ -59,7 +58,10 @@ async def chlang(c: Client, m: CallbackQuery | Message, s: Strings):
         else s("language_changer_chat")
     )
 
-    await sender(res, reply_markup=keyboard)
+    if isinstance(m, CallbackQuery):
+        await edit_styled_text(msg, res, keyboard)
+    else:
+        await send_styled_text(msg, res, keyboard)
 
 
 @Client.on_callback_query(filters.regex("^set_lang "))
@@ -87,4 +89,4 @@ async def set_chat_lang_edit(c: Client, m: CallbackQuery, s: Strings):
         )
     else:
         keyboard = None
-    await m.message.edit_text(s("language_changed_successfully"), reply_markup=keyboard)
+    await edit_styled_text(m.message, s("language_changed_successfully"), keyboard)

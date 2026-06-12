@@ -6,7 +6,7 @@ from __future__ import annotations
 import config
 
 from hydrogram import Client, filters
-from hydrogram.enums import ChatMembersFilter, ChatMemberStatus, ParseMode
+from hydrogram.enums import ChatMembersFilter, ChatMemberStatus
 from hydrogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
@@ -18,6 +18,7 @@ from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
 from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send_styled_text
 
 
 # Using a low priority group so deeplinks will run before this and stop the propagation.
@@ -25,12 +26,7 @@ from eduu.utils.localization import Strings, use_chat_lang
 @Client.on_callback_query(filters.regex("^start_back$"))
 @use_chat_lang
 async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
-    if isinstance(m, CallbackQuery):
-        msg = m.message
-        send = msg.edit_text
-    else:
-        msg = m
-        send = msg.reply_text
+    msg = m.message if isinstance(m, CallbackQuery) else m
 
     buttons = [
         [
@@ -59,22 +55,17 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
     start_text = s("start_private")
 
     if isinstance(m, CallbackQuery):
-        await send(start_text, reply_markup=keyboard)
+        await edit_styled_text(msg, start_text, keyboard)
         return
 
     if START_IMG_URL:
         try:
-            await m.reply_photo(
-                START_IMG_URL,
-                caption=start_text,
-                reply_markup=keyboard,
-                parse_mode=ParseMode.HTML,
-            )
+            await send_styled_photo(m, START_IMG_URL, start_text, keyboard)
             return
         except Exception:
             pass
 
-    await send(start_text, reply_markup=keyboard)
+    await send_styled_text(m, start_text, keyboard)
 
 
 @Client.on_message(filters.command("start", PREFIXES) & filters.group, group=2)
@@ -91,7 +82,7 @@ async def start_grp(c: Client, m: Message, s: Strings):
             ]
         ]
     )
-    await m.reply_text(s("start_group"), reply_markup=keyboard)
+    await send_styled_text(m, s("start_group"), keyboard)
 
 
 @Client.on_callback_query(filters.regex("^infos$"))
@@ -107,7 +98,12 @@ async def infos(c: Client, m: CallbackQuery, s: Strings):
             [styled_button(s("general_back_btn"), callback_data="start_back", style="danger")]
         ]
     )
-    await m.message.edit_text(res, reply_markup=keyboard, disable_web_page_preview=True)
+    await edit_styled_text(
+        m.message,
+        res,
+        keyboard,
+        disable_web_page_preview=True,
+    )
 
 
 @Client.on_message(filters.command("owner", PREFIXES) & filters.group)

@@ -21,4 +21,6 @@ def styled_button(
     # Omitting style uses Telegram's normal app-specific button appearance.
     if style and supports_button_style:
         kwargs["style"] = style
-    return InlineKeyboardButton(text, **kwargs)
+    button = InlineKeyboardButton(text, **kwargs)
+    button.style = style
+    return button
