@@ -9,13 +9,13 @@ from hydrogram import Client, filters
 from hydrogram.enums import ChatType
 from hydrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
 )
 
 from config import PREFIXES
 from eduu.database.localization import set_db_lang
+from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, langdict, use_chat_lang
 
@@ -23,7 +23,7 @@ from eduu.utils.localization import Strings, langdict, use_chat_lang
 def gen_langs_kb():
     return [
         [
-            InlineKeyboardButton(
+            styled_button(
                 f"{langdict[lang]['_meta_language_flag']} {langdict[lang]['_meta_language_name']}",
                 callback_data=f"set_lang {lang}",
             )
@@ -42,7 +42,7 @@ async def chlang(c: Client, m: CallbackQuery | Message, s: Strings):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             *gen_langs_kb(),
-            [InlineKeyboardButton(s("general_back_btn"), callback_data="start_back")],
+            [styled_button(s("general_back_btn"), callback_data="start_back", style="danger")],
         ]
     )
 
@@ -77,9 +77,10 @@ async def set_chat_lang_edit(c: Client, m: CallbackQuery, s: Strings):
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    InlineKeyboardButton(
+                    styled_button(
                         s("general_back_btn"),
                         callback_data="start_back",
+                        style="danger",
                     )
                 ]
             ]

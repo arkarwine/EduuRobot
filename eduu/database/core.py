@@ -33,7 +33,7 @@ class Database:
             cached_admins,
             antichannelpin INTEGER,
             delservicemsgs INTEGER,
-            antispam INTEGER,
+            antispam INTEGER DEFAULT 1,
             warn_action TEXT
         );
 

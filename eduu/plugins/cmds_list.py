@@ -6,12 +6,12 @@ from itertools import zip_longest
 from hydrogram import Client, filters
 from hydrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
 )
 
 from eduu.utils import commands
+from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import stop_here
 from eduu.utils.localization import Strings, use_chat_lang
 
@@ -19,9 +19,10 @@ from eduu.utils.localization import Strings, use_chat_lang
 def gen_categories_kb(strings_manager):
     return [
         [
-            InlineKeyboardButton(
+            styled_button(
                 strings_manager(f"cmds_category_{category}"),
                 callback_data=f"view_category {category}",
+                style="primary",
             )
             for category in categories
             if category
@@ -36,7 +37,7 @@ async def cmds_list(c: Client, m: CallbackQuery, s: Strings):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             *gen_categories_kb(s),
-            [InlineKeyboardButton(s("general_back_btn"), callback_data="start_back")],
+            [styled_button(s("general_back_btn"), callback_data="start_back", style="danger")],
         ]
     )
     await m.message.edit_text(s("cmds_list_select_category"), reply_markup=keyboard)
@@ -50,9 +51,10 @@ async def show_private_help(c: Client, m: Message, s: Strings):
         inline_keyboard=[
             *gen_categories_kb(s),
             [
-                InlineKeyboardButton(
+                styled_button(
                     s("general_back_btn"),
                     callback_data="start_back",
+                    style="danger",
                 )
             ],
         ]
@@ -67,9 +69,10 @@ async def show_help(c: Client, m: Message, s: Strings):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
+                styled_button(
                     s("start_chat"),
                     url=f"https://t.me/{c.me.username}?start=help",
+                    style="success",
                 )
             ]
         ]
@@ -82,6 +85,8 @@ async def show_help(c: Client, m: Message, s: Strings):
 async def get_category(c: Client, m: CallbackQuery, s: Strings):
     msg = commands.get_commands_message(s, m.data.split(maxsplit=1)[1])
     keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(s("general_back_btn"), callback_data="commands")]]
+        inline_keyboard=[
+            [styled_button(s("general_back_btn"), callback_data="commands", style="danger")]
+        ]
     )
     await m.message.edit_text(msg, reply_markup=keyboard)

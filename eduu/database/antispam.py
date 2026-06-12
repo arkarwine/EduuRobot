@@ -23,7 +23,7 @@ async def _ensure_column() -> None:
     await cursor.close()
     if "antispam" not in columns:
         try:
-            await conn.execute("ALTER TABLE groups ADD COLUMN antispam INTEGER")
+            await conn.execute("ALTER TABLE groups ADD COLUMN antispam INTEGER DEFAULT 1")
             await conn.commit()
         except OperationalError as error:
             # Another concurrent handler may have added the column first.
@@ -40,7 +40,7 @@ async def is_antispam_enabled(chat_id: int) -> bool:
     cursor = await conn.execute("SELECT antispam FROM groups WHERE chat_id = ?", (chat_id,))
     row = await cursor.fetchone()
     await cursor.close()
-    enabled = bool(row[0]) if row else False
+    enabled = True if not row or row[0] is None else bool(row[0])
     enabled_cache[chat_id] = enabled
     return enabled
 

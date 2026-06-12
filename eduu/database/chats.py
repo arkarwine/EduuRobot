@@ -17,7 +17,8 @@ async def add_chat(chat_id, chat_type):
         await conn.commit()
     elif chat_type in GROUP_TYPES:  # groups and supergroups share the same table
         await conn.execute(
-            "INSERT INTO groups (chat_id,welcome_enabled) values (?,?)", (chat_id, True)
+            "INSERT INTO groups (chat_id, welcome_enabled, antispam) VALUES (?, ?, ?)",
+            (chat_id, True, True),
         )
         await conn.commit()
     elif chat_type == ChatType.CHANNEL:

@@ -20,6 +20,13 @@ from eduu.database.spam_filters import (
     get_spam_filters,
     remove_spam_filter,
 )
+from eduu.database.warns import (
+    add_warns,
+    get_warn_action,
+    get_warns,
+    get_warns_limit,
+    reset_warns,
+)
 from eduu.utils import commands
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.decorators import require_admin
@@ -138,6 +145,68 @@ async def _moderate_spam(
     raise StopPropagation
 
 
+async def _warn_and_delete(c: Client, m: Message, s: Strings, reason: str) -> None:
+    try:
+        await c.delete_messages(m.chat.id, [m.id])
+    except RPCError as error:
+        await c.send_message(
+            m.chat.id,
+            s("antispam_delete_failed").format(
+                error=escape(f"{error.__class__.__name__}: {error}")
+            ),
+        )
+
+    await add_warns(m.chat.id, m.from_user.id, 1)
+    warn_count = await get_warns(m.chat.id, m.from_user.id)
+    warn_limit = await get_warns_limit(m.chat.id)
+
+    if warn_count >= warn_limit:
+        action = await get_warn_action(m.chat.id)
+        try:
+            if action == "ban":
+                await m.chat.ban_member(m.from_user.id)
+                text = s("warn_banned")
+            elif action == "mute":
+                await m.chat.restrict_member(
+                    m.from_user.id,
+                    ChatPermissions(can_send_messages=False),
+                )
+                text = s("warn_muted")
+            elif action == "kick":
+                await m.chat.ban_member(m.from_user.id)
+                await m.chat.unban_member(m.from_user.id)
+                text = s("warn_kicked")
+            else:
+                text = s("warn_warned")
+        except RPCError as error:
+            await c.send_message(
+                m.chat.id,
+                s("antispam_action_failed").format(
+                    error=escape(f"{error.__class__.__name__}: {error}")
+                ),
+            )
+            raise StopPropagation
+
+        warning = text.format(
+            target_user=m.from_user.mention,
+            warn_count=warn_count,
+            warn_limit=warn_limit,
+        )
+        await reset_warns(m.chat.id, m.from_user.id)
+    else:
+        warning = s("warn_warned").format(
+            target_user=m.from_user.mention,
+            warn_count=warn_count,
+            warn_limit=warn_limit,
+        )
+
+    await c.send_message(
+        m.chat.id,
+        warning + "\n" + s("warn_reason_text").format(reason_text=reason),
+    )
+    raise StopPropagation
+
+
 @Client.on_message(filters.command("antispam", PREFIXES) & filters.group)
 @require_admin(ChatPrivileges(can_delete_messages=True, can_restrict_members=True))
 @use_chat_lang
@@ -212,7 +281,23 @@ async def list_spam_filters_cmd(c: Client, m: Message, s: Strings):
 @Client.on_message(filters.group & filters.incoming & ~filters.service, group=3)
 @use_chat_lang
 async def detect_spam(c: Client, m: Message, s: Strings):
-    if not m.from_user or m.from_user.is_bot or not await is_antispam_enabled(m.chat.id):
+    if not await is_antispam_enabled(m.chat.id):
+        return
+
+    spam_words = await get_spam_filters(m.chat.id)
+    link_spam = _contains_telegram_link(m)
+    forward_spam = _is_forwarded(m)
+    word_spam = _contains_spam_word(m, spam_words)
+
+    if not m.from_user:
+        if link_spam or forward_spam or word_spam:
+            try:
+                await c.delete_messages(m.chat.id, [m.id])
+            except RPCError:
+                pass
+            raise StopPropagation
+        return
+    if m.from_user.is_bot:
         return
 
     try:
@@ -230,13 +315,16 @@ async def detect_spam(c: Client, m: Message, s: Strings):
         history.popleft()
     history.append((now, m.id, _fingerprint(m)))
 
-    spam_words = await get_spam_filters(m.chat.id)
-    if not (
-        _contains_telegram_link(m)
-        or _is_forwarded(m)
-        or _contains_spam_word(m, spam_words)
-        or _is_spam(history, now)
-    ):
+    if link_spam:
+        history.clear()
+        await _warn_and_delete(c, m, s, s("antispam_reason_telegram_link"))
+    if forward_spam:
+        history.clear()
+        await _warn_and_delete(c, m, s, s("antispam_reason_forward"))
+    if word_spam:
+        history.clear()
+        await _warn_and_delete(c, m, s, s("antispam_reason_spam_word"))
+    if not _is_spam(history, now):
         return
 
     message_ids = [message_id for _, message_id, _ in history]

@@ -3,7 +3,6 @@ from uuid import uuid4
 
 from hydrogram import Client
 from hydrogram.types import (
-    InlineKeyboardButton,
     InlineKeyboardMarkup,
     InlineQuery,
     InlineQueryResultArticle,
@@ -11,6 +10,7 @@ from hydrogram.types import (
 )
 
 from eduu.utils import inline_commands
+from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
 
 
@@ -47,11 +47,12 @@ async def inline_search(c: Client, q: InlineQuery, s: Strings):
                 ),
                 reply_markup=InlineKeyboardMarkup([
                     [
-                        InlineKeyboardButton(
+                        styled_button(
                             text=s("inline_cmds_run_command_button").format(
                                 query=stripped_command
                             ),
                             switch_inline_query_current_chat=stripped_command,
+                            style="success",
                         )
                     ]
                 ]),

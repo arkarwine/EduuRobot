@@ -9,7 +9,6 @@ from hydrogram import Client, filters
 from hydrogram.enums import ChatMembersFilter, ChatMemberStatus, ParseMode
 from hydrogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
 )
@@ -17,6 +16,7 @@ from hydrogram.types import (
 from config import OWNER_URL, PREFIXES, START_IMG_URL, UPDATES_CHANNEL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
+from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
 
 
@@ -34,24 +34,25 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
 
     buttons = [
         [
-            InlineKeyboardButton(s("start_commands_btn"), callback_data="commands"),
-            InlineKeyboardButton(s("start_language_btn"), callback_data="chlang"),
+            styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
+            styled_button(s("start_language_btn"), callback_data="chlang"),
         ],
         [
-            InlineKeyboardButton(s("start_updates_btn"), url=UPDATES_CHANNEL),
-            InlineKeyboardButton(s("start_owner_btn"), url=OWNER_URL),
+            styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
+            styled_button(s("start_owner_btn"), url=OWNER_URL),
         ],
         [
-            InlineKeyboardButton(
+            styled_button(
                 s("start_add_to_chat_btn"),
                 url=f"https://t.me/{c.me.username}?startgroup=new",
+                style="success",
             ),
         ]
     ]
 
     if support_group := getattr(config, "SUPPORT_GROUP", ""):
         buttons.append(
-            [InlineKeyboardButton(s("start_support_group_btn"), url=support_group)]
+            [styled_button(s("start_support_group_btn"), url=support_group, style="primary")]
         )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -82,9 +83,10 @@ async def start_grp(c: Client, m: Message, s: Strings):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
+                styled_button(
                     s("start_chat"),
                     url=f"https://t.me/{c.me.username}?start=start",
+                    style="success",
                 )
             ]
         ]
@@ -101,7 +103,9 @@ async def infos(c: Client, m: CallbackQuery, s: Strings):
         copyright_year=__copyright_year__,
     )
     keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(s("general_back_btn"), callback_data="start_back")]]
+        inline_keyboard=[
+            [styled_button(s("general_back_btn"), callback_data="start_back", style="danger")]
+        ]
     )
     await m.message.edit_text(res, reply_markup=keyboard, disable_web_page_preview=True)
 
