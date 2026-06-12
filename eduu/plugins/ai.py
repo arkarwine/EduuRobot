@@ -135,4 +135,4 @@ async def ai_command(c: Client, m: Message, s: Strings):
         await m.reply_text(error_msg)
 
 
-commands.add_command("ai", "general")
+commands.add_command("ai", "ai")

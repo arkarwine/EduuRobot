@@ -64,5 +64,8 @@ SUPPORT_GROUP: str = ""
 # Image URL to show on /start in private chats
 START_IMG_URL: str = ""
 
+# Default exact words treated as spam when anti-spam is enabled
+SPAM_FILTER_WORDS: List[str] = ["bio"]
+
 # List of disabled plugins
 DISABLED_PLUGINS: List[str] = []

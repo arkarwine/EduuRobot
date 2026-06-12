@@ -7,6 +7,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from html import escape
+from re import IGNORECASE, compile, escape as regex_escape
 
 from hydrogram import Client, StopPropagation, filters
 from hydrogram.errors import RPCError
@@ -14,6 +15,11 @@ from hydrogram.types import ChatPermissions, ChatPrivileges, Message
 
 from config import PREFIXES
 from eduu.database.antispam import is_antispam_enabled, set_antispam
+from eduu.database.spam_filters import (
+    add_spam_filter,
+    get_spam_filters,
+    remove_spam_filter,
+)
 from eduu.utils import commands
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.decorators import require_admin
@@ -27,6 +33,10 @@ MUTE_MINUTES = 5
 
 message_history: dict[tuple[int, int], deque[tuple[float, int, str]]] = defaultdict(deque)
 last_cleanup = 0.0
+telegram_link_pattern = compile(
+    r"(?<![\w.])(?:(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)(?:/\S*)?|tg://\S+)",
+    IGNORECASE,
+)
 
 
 def _fingerprint(m: Message) -> str:
@@ -36,6 +46,34 @@ def _fingerprint(m: Message) -> str:
     if m.sticker:
         return f"sticker:{m.sticker.file_unique_id}"
     return ""
+
+
+def _contains_telegram_link(m: Message) -> bool:
+    if telegram_link_pattern.search(m.text or m.caption or ""):
+        return True
+    return any(
+        telegram_link_pattern.search(entity.url)
+        for entity in (m.entities or []) + (m.caption_entities or [])
+        if entity.url
+    )
+
+
+def _is_forwarded(m: Message) -> bool:
+    return bool(
+        m.forward_from
+        or m.forward_sender_name
+        or m.forward_from_chat
+        or m.forward_from_message_id
+        or m.forward_date
+    )
+
+
+def _contains_spam_word(m: Message, spam_words: list[str]) -> bool:
+    text = m.text or m.caption or ""
+    return any(
+        compile(rf"(?<!\w){regex_escape(word)}(?!\w)", IGNORECASE).search(text)
+        for word in spam_words
+    )
 
 
 def _is_spam(history: deque[tuple[float, int, str]], now: float) -> bool:
@@ -64,59 +102,12 @@ def _cleanup_history(now: float) -> None:
     last_cleanup = now
 
 
-@Client.on_message(filters.command("antispam", PREFIXES) & filters.group)
-@require_admin(ChatPrivileges(can_delete_messages=True, can_restrict_members=True))
-@use_chat_lang
-async def antispam_settings(c: Client, m: Message, s: Strings):
-    if len(m.command) == 1:
-        key = (
-            "antispam_status_enabled"
-            if await is_antispam_enabled(m.chat.id)
-            else "antispam_status_disabled"
-        )
-        await m.reply_text(s(key))
-        return
-
-    mode = m.command[1].lower()
-    if mode not in {"on", "off"}:
-        await m.reply_text(s("antispam_invalid_arg"))
-        return
-
-    enabled = mode == "on"
-    await set_antispam(m.chat.id, enabled)
-    if not enabled:
-        for key in [key for key in message_history if key[0] == m.chat.id]:
-            message_history.pop(key, None)
-    await m.reply_text(s("antispam_enabled" if enabled else "antispam_disabled"))
-
-
-@Client.on_message(filters.group & filters.incoming & ~filters.service, group=3)
-@use_chat_lang
-async def detect_spam(c: Client, m: Message, s: Strings):
-    if not m.from_user or m.from_user.is_bot or not await is_antispam_enabled(m.chat.id):
-        return
-
-    try:
-        member = await m.chat.get_member(m.from_user.id)
-    except RPCError:
-        return
-    if member.status in ADMIN_STATUSES:
-        return
-
-    now = time.monotonic()
-    _cleanup_history(now)
-    key = (m.chat.id, m.from_user.id)
-    history = message_history[key]
-    while history and history[0][0] < now - REPEAT_WINDOW:
-        history.popleft()
-    history.append((now, m.id, _fingerprint(m)))
-
-    if not _is_spam(history, now):
-        return
-
-    message_ids = [message_id for _, message_id, _ in history]
-    history.clear()
-
+async def _moderate_spam(
+    c: Client,
+    m: Message,
+    s: Strings,
+    message_ids: list[int],
+) -> None:
     try:
         await c.delete_messages(m.chat.id, message_ids)
     except RPCError:
@@ -147,4 +138,113 @@ async def detect_spam(c: Client, m: Message, s: Strings):
     raise StopPropagation
 
 
+@Client.on_message(filters.command("antispam", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_delete_messages=True, can_restrict_members=True))
+@use_chat_lang
+async def antispam_settings(c: Client, m: Message, s: Strings):
+    if len(m.command) == 1:
+        key = (
+            "antispam_status_enabled"
+            if await is_antispam_enabled(m.chat.id)
+            else "antispam_status_disabled"
+        )
+        await m.reply_text(s(key))
+        return
+
+    mode = m.command[1].lower()
+    if mode not in {"on", "off"}:
+        await m.reply_text(s("antispam_invalid_arg"))
+        return
+
+    enabled = mode == "on"
+    await set_antispam(m.chat.id, enabled)
+    if not enabled:
+        for key in [key for key in message_history if key[0] == m.chat.id]:
+            message_history.pop(key, None)
+    await m.reply_text(s("antispam_enabled" if enabled else "antispam_disabled"))
+
+
+@Client.on_message(filters.command("spamfilter", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_delete_messages=True, can_restrict_members=True))
+@use_chat_lang
+async def add_spam_filter_cmd(c: Client, m: Message, s: Strings):
+    parts = m.text.split(None, 1)
+    if len(parts) < 2 or not parts[1].strip():
+        await m.reply_text(s("spam_filter_add_empty"))
+        return
+
+    word = parts[1].strip()
+    if await add_spam_filter(m.chat.id, word):
+        await m.reply_text(s("spam_filter_added").format(word=escape(word)))
+    else:
+        await m.reply_text(s("spam_filter_exists").format(word=escape(word)))
+
+
+@Client.on_message(filters.command("delspamfilter", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_delete_messages=True, can_restrict_members=True))
+@use_chat_lang
+async def remove_spam_filter_cmd(c: Client, m: Message, s: Strings):
+    parts = m.text.split(None, 1)
+    if len(parts) < 2 or not parts[1].strip():
+        await m.reply_text(s("spam_filter_remove_empty"))
+        return
+
+    word = parts[1].strip()
+    if await remove_spam_filter(m.chat.id, word):
+        await m.reply_text(s("spam_filter_removed").format(word=escape(word)))
+    else:
+        await m.reply_text(s("spam_filter_not_found").format(word=escape(word)))
+
+
+@Client.on_message(filters.command("spamfilters", PREFIXES) & filters.group)
+@require_admin()
+@use_chat_lang
+async def list_spam_filters_cmd(c: Client, m: Message, s: Strings):
+    spam_words = await get_spam_filters(m.chat.id)
+    if not spam_words:
+        await m.reply_text(s("spam_filters_empty"))
+        return
+
+    words = "\n".join(f" - <code>{escape(word)}</code>" for word in spam_words)
+    await m.reply_text(s("spam_filters_list").format(words=words))
+
+
+@Client.on_message(filters.group & filters.incoming & ~filters.service, group=3)
+@use_chat_lang
+async def detect_spam(c: Client, m: Message, s: Strings):
+    if not m.from_user or m.from_user.is_bot or not await is_antispam_enabled(m.chat.id):
+        return
+
+    try:
+        member = await m.chat.get_member(m.from_user.id)
+    except RPCError:
+        return
+    if member.status in ADMIN_STATUSES:
+        return
+
+    now = time.monotonic()
+    _cleanup_history(now)
+    key = (m.chat.id, m.from_user.id)
+    history = message_history[key]
+    while history and history[0][0] < now - REPEAT_WINDOW:
+        history.popleft()
+    history.append((now, m.id, _fingerprint(m)))
+
+    spam_words = await get_spam_filters(m.chat.id)
+    if not (
+        _contains_telegram_link(m)
+        or _is_forwarded(m)
+        or _contains_spam_word(m, spam_words)
+        or _is_spam(history, now)
+    ):
+        return
+
+    message_ids = [message_id for _, message_id, _ in history]
+    history.clear()
+    await _moderate_spam(c, m, s, message_ids)
+
+
 commands.add_command("antispam", "admin_misc")
+commands.add_command("delspamfilter", "admin_filters")
+commands.add_command("spamfilter", "admin_filters")
+commands.add_command("spamfilters", "admin_filters")

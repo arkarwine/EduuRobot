@@ -73,6 +73,16 @@ class Database:
             count INTEGER
         );
 
+        CREATE TABLE IF NOT EXISTS spam_filters(
+            chat_id INTEGER,
+            word TEXT,
+            UNIQUE(chat_id, word)
+        );
+
+        CREATE TABLE IF NOT EXISTS spam_filter_settings(
+            chat_id INTEGER PRIMARY KEY
+        );
+
         CREATE TABLE IF NOT EXISTS chat_logs(
             chat_id INTEGER PRIMARY KEY,
             chat_type TEXT,

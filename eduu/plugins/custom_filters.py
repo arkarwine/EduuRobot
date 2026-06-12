@@ -33,33 +33,49 @@ async def check_for_filters(chat_id, trigger):
 @use_chat_lang
 async def save_filter(c: Client, m: Message, s: Strings):
     args = m.text.markdown.split(maxsplit=1)
-    split_text = split_quotes(args[1])
-    trigger = split_text[0].lower()
-
-    if m.reply_to_message is None and len(split_text) < 2:
+    if len(args) < 2:
         await m.reply_text(s("filters_add_empty"), quote=True)
         return
 
-    if m.reply_to_message.media and m.reply_to_message.media.value in {
+    split_text = split_quotes(args[1])
+    trigger = split_text[0].lower()
+    reply = m.reply_to_message
+
+    if reply is None and len(split_text) < 2:
+        await m.reply_text(s("filters_add_empty"), quote=True)
+        return
+
+    if reply and reply.media and reply.media.value in {
         "photo",
         "document",
         "video",
         "audio",
         "animation",
     }:
-        file_id = getattr(m.reply_to_message, m.reply_to_message.media.value).file_id
-        raw_data = (
-            m.reply_to_message.caption.markdown if m.reply_to_message.caption is not None else None
-        )
-        filter_type = m.reply_to_message.media.value
-    elif m.reply_to_message and m.reply_to_message.sticker:
-        file_id = m.reply_to_message.sticker.file_id
+        file_id = getattr(reply, reply.media.value).file_id
+        raw_data = reply.caption.markdown if reply.caption is not None else None
+        filter_type = reply.media.value
+    elif reply and reply.sticker:
+        file_id = reply.sticker.file_id
         raw_data = split_text[1] if len(split_text) > 1 else None
         filter_type = "sticker"
+    elif reply:
+        file_id = None
+        if reply.text is not None:
+            raw_data = reply.text.markdown
+        elif len(split_text) > 1:
+            raw_data = split_text[1]
+        else:
+            raw_data = None
+        filter_type = "text"
     else:
         file_id = None
         raw_data = split_text[1]
         filter_type = "text"
+
+    if filter_type == "text" and raw_data is None:
+        await m.reply_text(s("filters_add_empty"), quote=True)
+        return
 
     chat_id = m.chat.id
     check_filter = await check_for_filters(chat_id, trigger)
@@ -77,6 +93,10 @@ async def save_filter(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def delete_filter(c: Client, m: Message, s: Strings):
     args = m.text.markdown.split(maxsplit=1)
+    if len(args) < 2:
+        await m.reply_text(s("filters_remove_empty"), quote=True)
+        return
+
     trigger = args[1].lower()
     chat_id = m.chat.id
     check_filter = await check_for_filters(chat_id, trigger)
