@@ -30,12 +30,15 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
 
     buttons = [
         [
-            styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
-            styled_button(s("start_language_btn"), callback_data="chlang"),
+            styled_button(
+                s("start_ai_btn"),
+                callback_data="view_category ai",
+                style="success",
+            ),
         ],
         [
-            styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
-            styled_button(s("start_owner_btn"), url=OWNER_URL),
+            styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
+            styled_button(s("start_language_btn"), callback_data="chlang"),
         ],
         [
             styled_button(
@@ -43,12 +46,16 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
                 url=f"https://t.me/{c.me.username}?startgroup=new",
                 style="success",
             ),
-        ]
+        ],
+        [
+            styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
+            styled_button(s("start_owner_btn"), url=OWNER_URL),
+        ],
     ]
 
     if support_group := getattr(config, "SUPPORT_GROUP", ""):
-        buttons.append(
-            [styled_button(s("start_support_group_btn"), url=support_group, style="primary")]
+        buttons[2].append(
+            styled_button(s("start_support_group_btn"), url=support_group, style="primary")
         )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)

@@ -18,18 +18,31 @@ from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 
 def gen_categories_kb(strings_manager):
-    return [
+    categories = [category for category in commands.commands if category != "ai"]
+    category_rows = [
         [
             styled_button(
                 strings_manager(f"cmds_category_{category}"),
                 callback_data=f"view_category {category}",
                 style="primary",
             )
-            for category in categories
+            for category in row
             if category
         ]
-        for categories in zip_longest(*[iter(commands.commands)] * 2)
+        for row in zip_longest(*[iter(categories)] * 2)
     ]
+    if "ai" in commands.commands:
+        category_rows.insert(
+            0,
+            [
+                styled_button(
+                    strings_manager("cmds_category_ai"),
+                    callback_data="view_category ai",
+                    style="success",
+                )
+            ],
+        )
+    return category_rows
 
 
 @Client.on_callback_query(filters.regex("^commands$"))

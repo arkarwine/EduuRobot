@@ -223,6 +223,7 @@
   "rules_set_empty": "You must specify the rules, e.g.: <code>/setrules your chat rules</code>.",
   "rules_set_success": "The rules for {chat_title} were set successfully.",
   "start_add_to_chat_btn": "➕ Add to a chat",
+  "start_ai_btn": "🤖 Ask AI",
   "start_chat": "🤖 Start a chat",
   "start_commands_btn": "📚 Commands",
   "start_group": "Hello! I'm EduuRobot. To discover my functions, start a conversation with me.",

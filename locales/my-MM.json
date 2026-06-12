@@ -223,6 +223,7 @@
   "rules_set_empty": "Rules များကို သတ်မှတ်ရမည်၊ ဥပမာ - <code>/setrules သင်၏ chat rules</code>။",
   "rules_set_success": "{chat_title} ၏ rules များကို အောင်မြင်စွာ သတ်မှတ်ပြီးပါပြီ။",
   "start_add_to_chat_btn": "➕ Chat တစ်ခုတွင် ထည့်သွင်းမည်",
+  "start_ai_btn": "🤖 AI ကို မေးမည်",
   "start_chat": "🤖 Chat စတင်မည်",
   "start_commands_btn": "📚 Commands",
   "start_group": "မင်္ဂလာပါ! ကျွန်ုပ်မှာ EduuRobot ဖြစ်သည်။ ကျွန်ုပ်၏ လုပ်ဆောင်ချက်များကို ရှာဖွေကြည့်ရန် ကျွန်ုပ်နှင့် conversation တစ်ခု စတင်ပါ။",
