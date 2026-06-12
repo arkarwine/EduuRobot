@@ -38,7 +38,7 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
         ],
         [
             styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
-            styled_button(s("start_language_btn"), callback_data="chlang"),
+            styled_button(s("start_language_btn"), callback_data="chlang", style="primary"),
         ],
         [
             styled_button(
@@ -49,7 +49,7 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
         ],
         [
             styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
-            styled_button(s("start_owner_btn"), url=OWNER_URL),
+            styled_button(s("start_owner_btn"), url=OWNER_URL, style="primary"),
         ],
     ]
 
