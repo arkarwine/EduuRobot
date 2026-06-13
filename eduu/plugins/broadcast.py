@@ -19,6 +19,9 @@ from eduu.utils.localization import Strings, use_chat_lang
 if TYPE_CHECKING:
     pass
 
+BROADCAST_BATCH_SIZE = 10
+BROADCAST_BATCH_DELAY_SECONDS = 3.0
+
 
 # Log all chats the bot interacts with
 @Client.on_message(group=-1)
@@ -55,31 +58,39 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
         failed = 0
         errors: str = ""
 
-        for i, chat_id in enumerate(chat_ids):
+        async def send_to_chat(chat_id: int) -> tuple[bool, str | None]:
             try:
                 await c.forward_messages(
                     chat_id=chat_id,
                     from_chat_id=source_message.chat.id,
                     message_ids=[source_message.id],
                 )
-                successful += 1
-            except (BadRequest, Forbidden):
-                failed += 1
-                errors += f"{chat_id}: {e}\n"
-
+                return True, None
+            except (BadRequest, Forbidden) as e:
+                return False, f"{chat_id}: {e}\n"
             except Exception as e:
-                failed += 1
-                errors += f"{chat_id}: {e}\n"
+                return False, f"{chat_id}: {e}\n"
 
-            if (i + 1) % 10 == 0:
-                await status_msg.edit_text(
-                    f"<b>Broadcasting to {chat_count} chats...</b>\n\n"
-                    f"Status: {i + 1}/{chat_count}\n"
-                    f"✅ Successful: {successful}\n"
-                    f"❌ Failed: {failed}",
-                )
-                
-                await asyncio.sleep(0.1)
+        for start in range(0, chat_count, BROADCAST_BATCH_SIZE):
+            batch = chat_ids[start : start + BROADCAST_BATCH_SIZE]
+            results = await asyncio.gather(*(send_to_chat(chat_id) for chat_id in batch))
+            for sent, error in results:
+                if sent:
+                    successful += 1
+                else:
+                    failed += 1
+                    errors += error or ""
+
+            completed = min(start + len(batch), chat_count)
+            await status_msg.edit_text(
+                f"<b>Broadcasting to {chat_count} chats...</b>\n\n"
+                f"Status: {completed}/{chat_count}\n"
+                f"✅ Successful: {successful}\n"
+                f"❌ Failed: {failed}",
+            )
+
+            if completed < chat_count:
+                await asyncio.sleep(BROADCAST_BATCH_DELAY_SECONDS)
 
         await status_msg.edit_text(
             f"<b>Broadcast Complete!</b>\n\n"

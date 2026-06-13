@@ -70,7 +70,8 @@ class Database:
         CREATE TABLE IF NOT EXISTS user_warns(
             user_id INTEGER,
             chat_id INTEGER,
-            count INTEGER
+            count INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS spam_filters(
@@ -136,6 +137,15 @@ class Database:
               AND repeat_limit = 3
               AND repeat_window = 20
             """
+        )
+
+        cursor = await conn.execute("PRAGMA table_info(user_warns)")
+        warn_columns = {row[1] for row in await cursor.fetchall()}
+        await cursor.close()
+        if "updated_at" not in warn_columns:
+            await conn.execute("ALTER TABLE user_warns ADD COLUMN updated_at TIMESTAMP")
+        await conn.execute(
+            "UPDATE user_warns SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
         )
 
         # Update the database

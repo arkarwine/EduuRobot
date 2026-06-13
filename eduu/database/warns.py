@@ -6,6 +6,20 @@ from __future__ import annotations
 from .core import database
 
 conn = database.get_conn()
+WARN_EXPIRY_DAYS = 3
+
+
+async def _delete_expired_warns(chat_id: int, user_id: int) -> None:
+    await conn.execute(
+        """
+        DELETE FROM user_warns
+        WHERE chat_id = ?
+          AND user_id = ?
+          AND updated_at <= datetime('now', ?)
+        """,
+        (chat_id, user_id, f"-{WARN_EXPIRY_DAYS} days"),
+    )
+    await conn.commit()
 
 
 async def get_warn_action(chat_id: int) -> str | None:
@@ -21,6 +35,7 @@ async def set_warn_action(chat_id: int, action: str | None):
 
 
 async def get_warns(chat_id, user_id):
+    await _delete_expired_warns(chat_id, user_id)
     cursor = await conn.execute(
         "SELECT count FROM user_warns WHERE chat_id = ? AND user_id = ?",
         (chat_id, user_id),
@@ -31,6 +46,7 @@ async def get_warns(chat_id, user_id):
 
 
 async def add_warns(chat_id, user_id, number):
+    await _delete_expired_warns(chat_id, user_id)
     cursor = await conn.execute(
         "SELECT * FROM user_warns WHERE chat_id = ? AND user_id = ?", (chat_id, user_id)
     )
@@ -38,12 +54,19 @@ async def add_warns(chat_id, user_id, number):
     await cursor.close()
     if row:
         await conn.execute(
-            "UPDATE user_warns SET count = count + ? WHERE chat_id = ? AND user_id = ?",
+            """
+            UPDATE user_warns
+            SET count = count + ?, updated_at = CURRENT_TIMESTAMP
+            WHERE chat_id = ? AND user_id = ?
+            """,
             (number, chat_id, user_id),
         )
     else:
         await conn.execute(
-            "INSERT INTO user_warns (user_id, chat_id, count) VALUES (?,?,?)",
+            """
+            INSERT INTO user_warns (user_id, chat_id, count, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """,
             (user_id, chat_id, number),
         )
 
