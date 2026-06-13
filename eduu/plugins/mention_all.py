@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from html import escape
+from random import choice
 
 from hydrogram import Client, filters
 from hydrogram.errors import FloodWait, RPCError
@@ -17,10 +18,11 @@ from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
 
 MAX_HEADING_LENGTH = 2000
+MENTION_EMOJIS = ("🔔", "✨", "📣", "👋", "💬", "⚡", "🎯", "📌", "🌟", "🙌")
 mention_tasks: dict[int, asyncio.Task] = {}
 
 
-def _get_heading(m: Message, s: Strings) -> str:
+def _get_heading(m: Message) -> str | None:
     parts = m.text.split(None, 1)
     if len(parts) > 1:
         return escape(parts[1][:MAX_HEADING_LENGTH])
@@ -28,12 +30,12 @@ def _get_heading(m: Message, s: Strings) -> str:
         text = m.reply_to_message.text or m.reply_to_message.caption
         if text:
             return escape(text[:MAX_HEADING_LENGTH])
-    return s("mention_all_default_heading")
+    return None
 
 
 def _mention(user, settings: dict[str, bool | int | str]) -> str:
     if settings["hidden"]:
-        return f'<a href="tg://user?id={user.id}">{escape(str(settings["emoji"]))}</a>'
+        return f'<a href="tg://user?id={user.id}">{choice(MENTION_EMOJIS)}</a>'
     return user.mention
 
 
@@ -106,10 +108,12 @@ async def mention_all(c: Client, m: Message, s: Strings):
     except RPCError as error:
         await m.reply_text(s("mention_all_failed").format(error=escape(str(error))))
         return
+    heading = _get_heading(m)
+    if not heading:
+        await m.reply_text(s("mention_all_text_required"))
+        return
     settings = await get_mention_settings(m.chat.id)
-    mention_tasks[m.chat.id] = asyncio.create_task(
-        _mention_members(c, m, s, _get_heading(m, s), settings)
-    )
+    mention_tasks[m.chat.id] = asyncio.create_task(_mention_members(c, m, s, heading, settings))
     await m.reply_text(s("mention_all_started"))
 
 
@@ -138,7 +142,6 @@ async def mention_all_status(c: Client, m: Message, s: Strings):
             delay=settings["delay_seconds"],
             hidden=s("general_yes") if settings["hidden"] else s("general_no"),
             admins=s("general_yes") if settings["include_admins"] else s("general_no"),
-            emoji=escape(str(settings["emoji"])),
         )
     )
 
@@ -158,8 +161,6 @@ async def configure_mention_all(c: Client, m: Message, s: Strings):
     elif key in {"hidden", "admins"} and value.casefold() in {"on", "off"}:
         db_key = "hidden" if key == "hidden" else "include_admins"
         await set_mention_setting(m.chat.id, db_key, value.casefold() == "on")
-    elif key == "emoji" and 1 <= len(value) <= 16:
-        await set_mention_setting(m.chat.id, "emoji", value)
     else:
         await m.reply_text(s("mention_all_config_help"))
         return

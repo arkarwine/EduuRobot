@@ -11,7 +11,6 @@ DEFAULT_SETTINGS = {
     "delay_seconds": 2,
     "hidden": True,
     "include_admins": True,
-    "emoji": "🔔",
 }
 ALLOWED_SETTINGS = set(DEFAULT_SETTINGS)
 
@@ -27,7 +26,7 @@ async def _ensure_settings(chat_id: int) -> None:
 async def get_mention_settings(chat_id: int) -> dict[str, bool | int | str]:
     await _ensure_settings(chat_id)
     cursor = await conn.execute(
-        "SELECT batch_size, delay_seconds, hidden, include_admins, emoji "
+        "SELECT batch_size, delay_seconds, hidden, include_admins "
         "FROM mention_all_settings WHERE chat_id = ?",
         (chat_id,),
     )

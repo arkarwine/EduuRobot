@@ -205,11 +205,10 @@
   "mention_all_already_running": "A mention-all job is already running in this chat.",
   "mention_all_cancelled": "Mention-all was cancelled.",
   "mention_all_complete": "Mentioned <b>{count}</b> members.",
-  "mention_all_default_heading": "Attention everyone!",
   "mention_all_failed": "Mention-all failed. Error: <code>{error}</code>",
   "mention_all_no_members": "No members could be mentioned.",
   "mention_all_not_running": "There is no mention-all job running in this chat.",
-  "mention_all_started": "Mentioning all members...",
+  "mention_all_started": "Mentioning all members... Admins can stop it with <code>/stopall</code>.",
   "markdown_send_inline": "Click here to send the text in markdown format.",
   "measurement_unit": "e",
   "mute_cannot_mute_admins": "I can't mute admins.",
@@ -303,9 +302,9 @@
   "general_no": "no",
   "general_yes": "yes",
   "mention_all_bot_must_be_admin": "I must be an administrator to enumerate and mention all members.",
-  "mention_all_config_help": "<b>Usage</b>\n<code>/setall batch 1-20</code>\n<code>/setall delay 1-30</code>\n<code>/setall hidden on/off</code>\n<code>/setall admins on/off</code>\n<code>/setall emoji 🔔</code>",
+  "mention_all_config_help": "<b>Usage</b>\n<code>/setall batch 1-20</code>\n<code>/setall delay 1-30</code>\n<code>/setall hidden on/off</code>\n<code>/setall admins on/off</code>",
   "mention_all_config_updated": "Mention-all settings updated.",
-  "mention_all_settings": "<b>Mention-all settings</b>\nRunning: {running}\nBatch size: {batch}\nDelay: {delay}s\nHidden mentions: {hidden}\nInclude admins: {admins}\nMention emoji: {emoji}",
+  "mention_all_settings": "<b>Mention-all settings</b>\nRunning: {running}\nBatch size: {batch}\nDelay: {delay}s\nHidden mentions: {hidden}\nInclude admins: {admins}\n\nAdmins can stop a running mention with <code>/stopall</code>.",
   "mention_all_stop_requested": "Stopping the mention-all job...",
   "purge_confirm": "Delete every message from the replied message through this command?",
   "purge_reply_required": "Reply to the first message you want to purge.",
@@ -319,5 +318,6 @@
   "spam_allow_unchanged": "The anti-spam allowlist already has that state: <b>{kind}</b> <code>{value}</code>.",
   "unpinall_confirm": "Unpin every pinned message in this chat?",
   "unpinall_success": "All messages were unpinned.",
-  "bot_missing_permissions": "I need these administrator permissions before this feature can be enabled: {permissions}."
+  "bot_missing_permissions": "I need these administrator permissions before this feature can be enabled: {permissions}.",
+  "mention_all_text_required": "Reply to a message or include text after <code>/all</code>."
 }

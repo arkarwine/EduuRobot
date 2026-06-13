@@ -110,8 +110,7 @@ class Database:
             batch_size INTEGER DEFAULT 5,
             delay_seconds INTEGER DEFAULT 2,
             hidden INTEGER DEFAULT 1,
-            include_admins INTEGER DEFAULT 1,
-            emoji TEXT DEFAULT '🔔'
+            include_admins INTEGER DEFAULT 1
         );
 
         CREATE TABLE IF NOT EXISTS chat_logs(
