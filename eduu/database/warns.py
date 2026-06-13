@@ -10,8 +10,9 @@ conn = database.get_conn()
 
 async def get_warn_action(chat_id: int) -> str | None:
     cursor = await conn.execute("SELECT warn_action FROM groups WHERE chat_id = (?)", (chat_id,))
-    res = (await cursor.fetchone())[0]
-    return "ban" if res is None else res
+    row = await cursor.fetchone()
+    await cursor.close()
+    return "ban" if not row or row[0] is None else row[0]
 
 
 async def set_warn_action(chat_id: int, action: str | None):
@@ -25,6 +26,7 @@ async def get_warns(chat_id, user_id):
         (chat_id, user_id),
     )
     r = await cursor.fetchone()
+    await cursor.close()
     return r[0] if r else 0
 
 
@@ -57,8 +59,9 @@ async def reset_warns(chat_id, user_id):
 
 async def get_warns_limit(chat_id):
     cursor = await conn.execute("SELECT warns_limit FROM groups WHERE chat_id = ?", (chat_id,))
-    res = (await cursor.fetchone())[0]
-    return 3 if res is None else res
+    row = await cursor.fetchone()
+    await cursor.close()
+    return 3 if not row or row[0] is None else row[0]
 
 
 async def set_warns_limit(chat_id, warns_limit):

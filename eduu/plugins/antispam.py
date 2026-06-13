@@ -123,6 +123,12 @@ def _cleanup_history(now: float, max_window: int) -> None:
 
 
 async def _warn_and_delete(c: Client, m: Message, s: Strings, reason: str) -> None:
+    warning_error = None
+    try:
+        count, limit, action = await add_warning_and_apply_action(m.chat, m.from_user.id)
+    except Exception as error:
+        warning_error = error
+
     try:
         await c.delete_messages(m.chat.id, [m.id])
     except RPCError as error:
@@ -130,15 +136,14 @@ async def _warn_and_delete(c: Client, m: Message, s: Strings, reason: str) -> No
             m.chat.id,
             s("antispam_delete_failed").format(error=escape(f"{type(error).__name__}: {error}")),
         )
-    try:
-        count, limit, action = await add_warning_and_apply_action(m.chat, m.from_user.id)
-    except RPCError as error:
+    if warning_error:
         await c.send_message(
             m.chat.id,
-            s("antispam_action_failed").format(error=escape(f"{type(error).__name__}: {error}")),
+            s("antispam_warning_failed").format(
+                error=escape(f"{type(warning_error).__name__}: {warning_error}")
+            ),
         )
         raise StopPropagation
-
     key = {
         "ban": "warn_banned",
         "mute": "warn_muted",
@@ -336,8 +341,15 @@ async def detect_spam(c: Client, m: Message, s: Strings):
         if link_spam or forward_spam or word_spam:
             try:
                 await c.delete_messages(m.chat.id, [m.id])
-            except RPCError:
-                pass
+            except RPCError as error:
+                await c.send_message(
+                    m.chat.id,
+                    s("antispam_delete_failed").format(
+                        error=escape(f"{type(error).__name__}: {error}")
+                    ),
+                )
+                raise StopPropagation
+            await c.send_message(m.chat.id, s("antispam_unwarnable_sender"))
             raise StopPropagation
         return
     if m.from_user.is_bot:

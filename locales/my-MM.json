@@ -319,5 +319,7 @@
   "unpinall_confirm": "Unpin every pinned message in this chat?",
   "unpinall_success": "All messages were unpinned.",
   "bot_missing_permissions": "I need these administrator permissions before this feature can be enabled: {permissions}.",
-  "mention_all_text_required": "Reply to a message or include text after <code>/all</code>."
+  "mention_all_text_required": "Reply to a message or include text after <code>/all</code>.",
+  "antispam_warning_failed": "The message was deleted, but I could not add a warning. Error: <code>{error}</code>.",
+  "antispam_unwarnable_sender": "The spam message was deleted, but Telegram did not provide a user account that can receive a warning."
 }
