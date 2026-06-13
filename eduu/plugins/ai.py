@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018-2026 Amano LLC
 
-from hydrogram import Client, filters
-from hydrogram.types import Message
+import asyncio
+
+from hydrogram import Client, filters, raw
 from hydrogram.enums import ChatAction
+from hydrogram.types import Message
 
 from config import PREFIXES, GEMINI_API_KEY
 from eduu.utils import commands
@@ -41,6 +43,24 @@ def _init_genai():
         return genai.Client(api_key=GEMINI_API_KEY)
     except Exception:
         return None
+
+
+async def _send_typing(c: Client, chat_id: int, message_thread_id: int | None = None) -> None:
+    try:
+        peer = await c.resolve_peer(chat_id)
+        request = (
+            raw.functions.messages.SetTyping(peer=peer, action=ChatAction.TYPING.value())
+            if message_thread_id is None
+            else raw.functions.messages.SetTyping(
+                peer=peer,
+                action=ChatAction.TYPING.value(),
+                top_msg_id=message_thread_id,
+            )
+        )
+        await c.invoke(request)
+    except Exception:
+        # Typing is cosmetic and must never prevent an AI response.
+        pass
 
 
 @Client.on_message(filters.command("ai", PREFIXES))
@@ -83,10 +103,9 @@ async def ai_command(c: Client, m: Message, s: Strings):
         await m.reply_text(s("ai_no_input"))
         return
 
-    # Send typing indicator
-    await c.send_chat_action(m.chat.id, ChatAction.TYPING)
-
     try:
+        await _send_typing(c, m.chat.id, m.message_thread_id)
+
         # Build context with separate user info for each input
         context_parts = [SYSTEM_PROMPT, "\nContext:"]
         
@@ -98,11 +117,13 @@ async def ai_command(c: Client, m: Message, s: Strings):
         
         # Add current user context if param text is provided
         if param_text:
-            context_parts.append(f"- Current User: {m.from_user.mention}")
+            current_user = m.from_user.mention if m.from_user else "Unknown"
+            context_parts.append(f"- Current User: {current_user}")
             context_parts.append(f"- Current Message: {param_text}")
         elif reply_text:
             # If only reply text, still add current user context
-            context_parts.append(f"- User: {m.from_user.mention}")
+            current_user = m.from_user.mention if m.from_user else "Unknown"
+            context_parts.append(f"- User: {current_user}")
         
         context_parts.append(f"- Chat: {m.chat.title if m.chat.title else 'Direct Message'}")
         context_parts.append(f"\nFull context:\n{input_text}")
@@ -110,7 +131,8 @@ async def ai_command(c: Client, m: Message, s: Strings):
         context = "\n".join(context_parts)
 
         # Call Gemini API
-        response = client.models.generate_content(
+        response = await asyncio.to_thread(
+            client.models.generate_content,
             model="gemini-3.1-flash-lite",
             contents=context,
         )

@@ -17,13 +17,16 @@ async def apply_moderation_action(
     until_date: datetime | None = None,
 ) -> None:
     if action == "ban":
-        await chat.ban_member(user_id, until_date=until_date)
+        if until_date is None:
+            await chat.ban_member(user_id)
+        else:
+            await chat.ban_member(user_id, until_date=until_date)
     elif action == "mute":
-        await chat.restrict_member(
-            user_id,
-            ChatPermissions(can_send_messages=False),
-            until_date=until_date,
-        )
+        permissions = ChatPermissions(can_send_messages=False)
+        if until_date is None:
+            await chat.restrict_member(user_id, permissions)
+        else:
+            await chat.restrict_member(user_id, permissions, until_date=until_date)
     elif action == "kick":
         await chat.ban_member(user_id)
         await chat.unban_member(user_id)

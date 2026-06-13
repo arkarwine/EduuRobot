@@ -91,9 +91,9 @@ class Database:
             words INTEGER DEFAULT 1,
             flood INTEGER DEFAULT 1,
             repeats INTEGER DEFAULT 1,
-            flood_limit INTEGER DEFAULT 6,
-            flood_window INTEGER DEFAULT 8,
-            repeat_limit INTEGER DEFAULT 3,
+            flood_limit INTEGER DEFAULT 10,
+            flood_window INTEGER DEFAULT 10,
+            repeat_limit INTEGER DEFAULT 4,
             repeat_window INTEGER DEFAULT 20,
             mute_minutes INTEGER DEFAULT 5
         );
@@ -125,6 +125,18 @@ class Database:
 
         # Enable WAL
         await conn.execute("PRAGMA journal_mode=WAL")
+
+        # Relax the original anti-spam defaults without changing customized chats.
+        await conn.execute(
+            """
+            UPDATE antispam_settings
+            SET flood_limit = 10, flood_window = 10, repeat_limit = 4
+            WHERE flood_limit = 6
+              AND flood_window = 8
+              AND repeat_limit = 3
+              AND repeat_window = 20
+            """
+        )
 
         # Update the database
         await conn.commit()

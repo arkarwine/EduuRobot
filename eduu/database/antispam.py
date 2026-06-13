@@ -14,9 +14,9 @@ DEFAULT_SETTINGS = {
     "words": True,
     "flood": True,
     "repeats": True,
-    "flood_limit": 6,
-    "flood_window": 8,
-    "repeat_limit": 3,
+    "flood_limit": 10,
+    "flood_window": 10,
+    "repeat_limit": 4,
     "repeat_window": 20,
     "mute_minutes": 5,
 }
