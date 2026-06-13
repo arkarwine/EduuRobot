@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018-2026 Amano LLC
 
-import asyncio
+from html import escape
+from secrets import randbits
+from time import monotonic
 
 from hydrogram import Client, filters, raw
-from hydrogram.enums import ChatAction
+from hydrogram.enums import ChatAction, ChatType
 from hydrogram.types import Message
 
-from config import PREFIXES, GEMINI_API_KEY
-from eduu.utils import commands
+from config import GEMINI_API_KEY, PREFIXES, TOKEN
+from eduu.utils import commands, http
 from eduu.utils.localization import Strings, use_chat_lang
 
 try:
@@ -33,6 +35,10 @@ Rules:
 - Keep replies short unless the question genuinely needs depth.
 - If the question is dumb, you can say so nicely.
 - Light humor only when it fits, but don't force it."""
+
+BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
+RICH_MESSAGE_LIMIT = 32768
+STREAM_UPDATE_INTERVAL = 0.35
 
 
 def _init_genai():
@@ -61,6 +67,52 @@ async def _send_typing(c: Client, chat_id: int, message_thread_id: int | None = 
     except Exception:
         # Typing is cosmetic and must never prevent an AI response.
         pass
+
+
+async def _bot_api_request(method: str, payload: dict) -> dict | bool:
+    response = await http.post(f"{BOT_API_URL}/{method}", json=payload)
+    data = response.json()
+    if not data.get("ok"):
+        raise RuntimeError(data.get("description", f"Bot API {method} failed"))
+    return data["result"]
+
+
+def _rich_message(text: str) -> dict[str, str]:
+    return {"html": escape(text)}
+
+
+async def _send_rich_draft(
+    m: Message,
+    draft_id: int,
+    text: str,
+) -> None:
+    payload = {
+        "chat_id": m.chat.id,
+        "draft_id": draft_id,
+        "rich_message": _rich_message(text[:RICH_MESSAGE_LIMIT]),
+    }
+    if m.message_thread_id is not None:
+        payload["message_thread_id"] = m.message_thread_id
+    await _bot_api_request("sendRichMessageDraft", payload)
+
+
+async def _send_final_response(m: Message, text: str, native_streamed: bool) -> None:
+    if native_streamed:
+        payload = {
+            "chat_id": m.chat.id,
+            "rich_message": _rich_message(text[:RICH_MESSAGE_LIMIT]),
+            "reply_parameters": {"message_id": m.id},
+        }
+        if m.message_thread_id is not None:
+            payload["message_thread_id"] = m.message_thread_id
+        try:
+            await _bot_api_request("sendRichMessage", payload)
+            text = text[RICH_MESSAGE_LIMIT:]
+        except Exception:
+            pass
+
+    for index in range(0, len(text), 4096):
+        await m.reply_text(text[index : index + 4096])
 
 
 @Client.on_message(filters.command("ai", PREFIXES))
@@ -130,27 +182,42 @@ async def ai_command(c: Client, m: Message, s: Strings):
         
         context = "\n".join(context_parts)
 
-        # Call Gemini API
-        response = await asyncio.to_thread(
-            client.models.generate_content,
+        response_stream = await client.aio.models.generate_content_stream(
             model="gemini-3.1-flash-lite",
             contents=context,
         )
+        draft_id = randbits(31) or 1
+        native_streamed = False
+        draft_available = m.chat.type == ChatType.PRIVATE
+        last_draft_update = 0.0
+        response_parts = []
+        async for response in response_stream:
+            chunk = response.text if hasattr(response, "text") else str(response)
+            if not chunk:
+                continue
+            response_parts.append(chunk)
+            if not draft_available or monotonic() - last_draft_update < STREAM_UPDATE_INTERVAL:
+                continue
+            try:
+                await _send_rich_draft(m, draft_id, "".join(response_parts))
+                native_streamed = True
+                last_draft_update = monotonic()
+            except Exception:
+                draft_available = False
 
-        ai_response = response.text if hasattr(response, 'text') else str(response)
+        ai_response = "".join(response_parts)
 
         if not ai_response or not ai_response.strip():
             await m.reply_text(s("ai_empty_response"))
             return
 
-        # Send response, split if too long
-        if len(ai_response) > 4096:
-            # Split into chunks
-            chunks = [ai_response[i : i + 4096] for i in range(0, len(ai_response), 4096)]
-            for chunk in chunks:
-                await m.reply_text(chunk)
-        else:
-            await m.reply_text(ai_response)
+        if draft_available:
+            try:
+                await _send_rich_draft(m, draft_id, ai_response)
+                native_streamed = True
+            except Exception:
+                pass
+        await _send_final_response(m, ai_response, native_streamed)
 
     except Exception as e:
         error_msg = s("ai_error").format(error=str(e)[:100])
