@@ -78,13 +78,13 @@ def require_admin(
             # We don't actually check private and channel chats.
             if msg.chat.type == ChatType.PRIVATE:
                 if allow_in_private:
-                    return await func(client, message, *args, *kwargs)
+                    return await func(client, message, *args, **kwargs)
                 return await sender(s("cmd_private_not_allowed"))
             if msg.chat.type == ChatType.CHANNEL:
-                return await func(client, message, *args, *kwargs)
+                return await func(client, message, *args, **kwargs)
             has_perms = await check_perms(message, permissions, complain_missing_perms, s)
             if has_perms:
-                return await func(client, message, *args, *kwargs)
+                return await func(client, message, *args, **kwargs)
             return None
 
         return wrapper

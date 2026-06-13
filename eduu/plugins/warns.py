@@ -30,6 +30,9 @@ def get_warn_reason_text(c: Client, m: Message) -> Message:
 @use_chat_lang
 async def warn_user(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     check_admin = await m.chat.get_member(target_user.id)
     reason = get_warn_reason_text(c, m)
 
@@ -74,6 +77,9 @@ async def on_set_warns_limit(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def unwarn_user(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     await reset_warns(m.chat.id, target_user.id)
     await m.reply_text(s("warn_reset").format(target_user=target_user.mention))
 
@@ -83,6 +89,9 @@ async def unwarn_user(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def get_user_warns_cmd(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     user_warns = await get_warns(m.chat.id, target_user.id)
     await m.reply_text(
         s("warns_count_string").format(target_user=target_user.mention, warns_count=user_warns)

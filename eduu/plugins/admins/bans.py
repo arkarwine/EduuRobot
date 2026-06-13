@@ -17,13 +17,20 @@ from eduu.utils.moderation import apply_moderation_action
 @require_admin(ChatPrivileges(can_restrict_members=True))
 async def ban(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     reason = get_reason_text(c, m)
     check_admin = await m.chat.get_member(target_user.id)
     if check_admin.status in ADMIN_STATUSES:
         await m.reply_text(s("ban_cannot_ban_admins"))
         return
 
-    await apply_moderation_action(m.chat, target_user.id, "ban")
+    try:
+        await apply_moderation_action(m.chat, target_user.id, "ban")
+    except Exception as error:
+        await m.reply_text(s("moderation_action_failed").format(error=error))
+        return
     text = s("ban_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -39,13 +46,20 @@ async def ban(c: Client, m: Message, s: Strings):
 @require_admin(ChatPrivileges(can_restrict_members=True))
 async def kick(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     reason = get_reason_text(c, m)
     check_admin = await m.chat.get_member(target_user.id)
     if check_admin.status in ADMIN_STATUSES:
         await m.reply_text(s("kick_cannot_kick_admins"))
         return
 
-    await apply_moderation_action(m.chat, target_user.id, "kick")
+    try:
+        await apply_moderation_action(m.chat, target_user.id, "kick")
+    except Exception as error:
+        await m.reply_text(s("moderation_action_failed").format(error=error))
+        return
     text = s("kick_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -61,8 +75,15 @@ async def kick(c: Client, m: Message, s: Strings):
 @require_admin(ChatPrivileges(can_restrict_members=True))
 async def unban(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
+    if not target_user:
+        await m.reply_text(s("moderation_target_required"))
+        return
     reason = get_reason_text(c, m)
-    await apply_moderation_action(m.chat, target_user.id, "unban")
+    try:
+        await apply_moderation_action(m.chat, target_user.id, "unban")
+    except Exception as error:
+        await m.reply_text(s("moderation_action_failed").format(error=error))
+        return
     text = s("unban_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -77,6 +98,9 @@ async def unban(c: Client, m: Message, s: Strings):
 @use_chat_lang
 @require_admin(ChatPrivileges(can_restrict_members=True))
 async def tban(c: Client, m: Message, s: Strings):
+    if not m.reply_to_message or not m.reply_to_message.from_user:
+        await m.reply_text(s("moderation_reply_target_required"))
+        return
     if len(m.command) == 1:
         await m.reply_text(s("admins_error_must_specify_time").format(command=m.command[0]))
         return
@@ -85,12 +109,16 @@ async def tban(c: Client, m: Message, s: Strings):
     ban_time = await extract_time(m, split_time[1])
     if not ban_time:
         return
-    await apply_moderation_action(
-        m.chat,
-        m.reply_to_message.from_user.id,
-        "ban",
-        until_date=ban_time,
-    )
+    try:
+        await apply_moderation_action(
+            m.chat,
+            m.reply_to_message.from_user.id,
+            "ban",
+            until_date=ban_time,
+        )
+    except Exception as error:
+        await m.reply_text(s("moderation_action_failed").format(error=error))
+        return
 
     await m.reply_text(
         s("tban_success").format(

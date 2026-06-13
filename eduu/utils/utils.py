@@ -273,17 +273,21 @@ commands = BotCommands()
 inline_commands = InlineBotCommands()
 
 
-async def get_target_user(c: Client, m: Message) -> User:
+async def get_target_user(c: Client, m: Message) -> User | None:
     if m.reply_to_message:
         return m.reply_to_message.from_user
-    msg_entities = m.entities[1] if m.text.startswith("/") else m.entities[0]
-    return await c.get_users(
-        msg_entities.user.id
-        if msg_entities.type == MessageEntityType.TEXT_MENTION
-        else int(m.command[1])
-        if m.command[1].isdecimal()
-        else m.command[1]
-    )
+    if len(m.command) < 2:
+        return None
+
+    for entity in m.entities or []:
+        if entity.type == MessageEntityType.TEXT_MENTION and getattr(entity, "user", None):
+            return entity.user
+
+    target = m.command[1]
+    try:
+        return await c.get_users(int(target) if target.lstrip("-").isdecimal() else target)
+    except Exception:
+        return None
 
 
 def get_reason_text(c: Client, m: Message) -> str | None:

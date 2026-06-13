@@ -39,6 +39,7 @@ Rules:
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 RICH_MESSAGE_LIMIT = 32768
 STREAM_UPDATE_INTERVAL = 0.35
+EDIT_STREAM_UPDATE_INTERVAL = 0.8
 
 
 def _init_genai():
@@ -113,6 +114,13 @@ async def _send_final_response(m: Message, text: str, native_streamed: bool) -> 
 
     for index in range(0, len(text), 4096):
         await m.reply_text(text[index : index + 4096])
+
+
+async def _update_text_stream(message: Message, text: str) -> None:
+    try:
+        await message.edit_text(text[:4096])
+    except Exception:
+        pass
 
 
 @Client.on_message(filters.command("ai", PREFIXES))
@@ -190,20 +198,32 @@ async def ai_command(c: Client, m: Message, s: Strings):
         native_streamed = False
         draft_available = m.chat.type == ChatType.PRIVATE
         last_draft_update = 0.0
+        last_text_update = 0.0
+        text_stream_message = None
         response_parts = []
         async for response in response_stream:
             chunk = response.text if hasattr(response, "text") else str(response)
             if not chunk:
                 continue
             response_parts.append(chunk)
-            if not draft_available or monotonic() - last_draft_update < STREAM_UPDATE_INTERVAL:
+            partial_response = "".join(response_parts)
+            now = monotonic()
+            if draft_available and now - last_draft_update >= STREAM_UPDATE_INTERVAL:
+                try:
+                    await _send_rich_draft(m, draft_id, partial_response)
+                    native_streamed = True
+                    last_draft_update = now
+                    continue
+                except Exception:
+                    draft_available = False
+
+            if native_streamed or now - last_text_update < EDIT_STREAM_UPDATE_INTERVAL:
                 continue
-            try:
-                await _send_rich_draft(m, draft_id, "".join(response_parts))
-                native_streamed = True
-                last_draft_update = monotonic()
-            except Exception:
-                draft_available = False
+            if text_stream_message is None:
+                text_stream_message = await m.reply_text(partial_response[:4096])
+            else:
+                await _update_text_stream(text_stream_message, partial_response)
+            last_text_update = now
 
         ai_response = "".join(response_parts)
 
@@ -217,7 +237,12 @@ async def ai_command(c: Client, m: Message, s: Strings):
                 native_streamed = True
             except Exception:
                 pass
-        await _send_final_response(m, ai_response, native_streamed)
+        if text_stream_message:
+            await _update_text_stream(text_stream_message, ai_response)
+            for index in range(4096, len(ai_response), 4096):
+                await m.reply_text(ai_response[index : index + 4096])
+        else:
+            await _send_final_response(m, ai_response, native_streamed)
 
     except Exception as e:
         error_msg = s("ai_error").format(error=str(e)[:100])
