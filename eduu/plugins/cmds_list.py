@@ -16,9 +16,33 @@ from eduu.utils.decorators import stop_here
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
+CATEGORY_ORDER = (
+    "ai",
+    "general",
+    "admin_antispam",
+    "admin_mentions",
+    "admin_warns",
+    "admin_bans",
+    "admin_mutes",
+    "admin_pins",
+    "admin_filters",
+    "admin_notes",
+    "admin_rules",
+    "admin_welcome",
+    "admin_misc",
+    "remote_moderation",
+    "tools",
+)
+
 
 def gen_categories_kb(strings_manager):
-    categories = [category for category in commands.commands if category != "ai"]
+    categories = sorted(
+        (category for category in commands.commands if category != "ai"),
+        key=lambda category: (
+            CATEGORY_ORDER.index(category) if category in CATEGORY_ORDER else len(CATEGORY_ORDER),
+            category,
+        ),
+    )
     category_rows = [
         [
             styled_button(

@@ -9,6 +9,7 @@ from eduu.utils import commands, extract_time, get_reason_text, get_target_user
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.moderation import apply_moderation_action
 
 
 @Client.on_message(filters.command("ban", PREFIXES))
@@ -22,7 +23,7 @@ async def ban(c: Client, m: Message, s: Strings):
         await m.reply_text(s("ban_cannot_ban_admins"))
         return
 
-    await m.chat.ban_member(target_user.id)
+    await apply_moderation_action(m.chat, target_user.id, "ban")
     text = s("ban_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -44,8 +45,7 @@ async def kick(c: Client, m: Message, s: Strings):
         await m.reply_text(s("kick_cannot_kick_admins"))
         return
 
-    await m.chat.ban_member(target_user.id)
-    await m.chat.unban_member(target_user.id)
+    await apply_moderation_action(m.chat, target_user.id, "kick")
     text = s("kick_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -62,7 +62,7 @@ async def kick(c: Client, m: Message, s: Strings):
 async def unban(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
     reason = get_reason_text(c, m)
-    await m.chat.unban_member(target_user.id)
+    await apply_moderation_action(m.chat, target_user.id, "unban")
     text = s("unban_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -85,7 +85,12 @@ async def tban(c: Client, m: Message, s: Strings):
     ban_time = await extract_time(m, split_time[1])
     if not ban_time:
         return
-    await m.chat.ban_member(m.reply_to_message.from_user.id, until_date=ban_time)
+    await apply_moderation_action(
+        m.chat,
+        m.reply_to_message.from_user.id,
+        "ban",
+        until_date=ban_time,
+    )
 
     await m.reply_text(
         s("tban_success").format(

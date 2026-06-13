@@ -3,50 +3,105 @@
 
 from __future__ import annotations
 
-from sqlite3 import OperationalError
-
 from .core import database
 
 conn = database.get_conn()
-enabled_cache: dict[int, bool] = {}
-column_ready = False
+
+DEFAULT_SETTINGS = {
+    "enabled": True,
+    "links": True,
+    "forwards": True,
+    "words": True,
+    "flood": True,
+    "repeats": True,
+    "flood_limit": 6,
+    "flood_window": 8,
+    "repeat_limit": 3,
+    "repeat_window": 20,
+    "mute_minutes": 5,
+}
+BOOL_SETTINGS = {"enabled", "links", "forwards", "words", "flood", "repeats"}
+INT_SETTINGS = {
+    "flood_limit",
+    "flood_window",
+    "repeat_limit",
+    "repeat_window",
+    "mute_minutes",
+}
+ALLOWLIST_KINDS = {"user", "link", "source"}
 
 
-async def _ensure_column() -> None:
-    global column_ready
+async def _ensure_settings(chat_id: int) -> None:
+    await conn.execute(
+        "INSERT OR IGNORE INTO antispam_settings(chat_id) VALUES (?)",
+        (chat_id,),
+    )
+    await conn.commit()
 
-    if column_ready:
-        return
 
-    cursor = await conn.execute("PRAGMA table_info(groups)")
-    columns = {row[1] for row in await cursor.fetchall()}
+async def get_antispam_settings(chat_id: int) -> dict[str, bool | int]:
+    await _ensure_settings(chat_id)
+    cursor = await conn.execute(
+        "SELECT enabled, links, forwards, words, flood, repeats, flood_limit, "
+        "flood_window, repeat_limit, repeat_window, mute_minutes "
+        "FROM antispam_settings WHERE chat_id = ?",
+        (chat_id,),
+    )
+    row = await cursor.fetchone()
     await cursor.close()
-    if "antispam" not in columns:
-        try:
-            await conn.execute("ALTER TABLE groups ADD COLUMN antispam INTEGER DEFAULT 1")
-            await conn.commit()
-        except OperationalError as error:
-            # Another concurrent handler may have added the column first.
-            if "duplicate column name" not in str(error).lower():
-                raise
-    column_ready = True
+    values = dict(row) if row else DEFAULT_SETTINGS.copy()
+    for key in BOOL_SETTINGS:
+        values[key] = bool(values[key])
+    return values
+
+
+async def set_antispam_setting(chat_id: int, key: str, value: bool | int) -> None:
+    if key not in BOOL_SETTINGS | INT_SETTINGS:
+        raise ValueError(f"Unknown anti-spam setting: {key}")
+    await _ensure_settings(chat_id)
+    await conn.execute(
+        f"UPDATE antispam_settings SET {key} = ? WHERE chat_id = ?",
+        (value, chat_id),
+    )
+    await conn.commit()
 
 
 async def is_antispam_enabled(chat_id: int) -> bool:
-    if chat_id in enabled_cache:
-        return enabled_cache[chat_id]
-
-    await _ensure_column()
-    cursor = await conn.execute("SELECT antispam FROM groups WHERE chat_id = ?", (chat_id,))
-    row = await cursor.fetchone()
-    await cursor.close()
-    enabled = True if not row or row[0] is None else bool(row[0])
-    enabled_cache[chat_id] = enabled
-    return enabled
+    return bool((await get_antispam_settings(chat_id))["enabled"])
 
 
 async def set_antispam(chat_id: int, enabled: bool) -> None:
-    await _ensure_column()
-    await conn.execute("UPDATE groups SET antispam = ? WHERE chat_id = ?", (enabled, chat_id))
+    await set_antispam_setting(chat_id, "enabled", enabled)
+
+
+async def add_antispam_allow(chat_id: int, kind: str, value: str) -> bool:
+    if kind not in ALLOWLIST_KINDS:
+        raise ValueError(f"Unknown allowlist kind: {kind}")
+    cursor = await conn.execute(
+        "INSERT OR IGNORE INTO antispam_allowlist(chat_id, kind, value) VALUES (?, ?, ?)",
+        (chat_id, kind, value.casefold()),
+    )
     await conn.commit()
-    enabled_cache[chat_id] = enabled
+    return cursor.rowcount > 0
+
+
+async def remove_antispam_allow(chat_id: int, kind: str, value: str) -> bool:
+    cursor = await conn.execute(
+        "DELETE FROM antispam_allowlist WHERE chat_id = ? AND kind = ? AND value = ?",
+        (chat_id, kind, value.casefold()),
+    )
+    await conn.commit()
+    return cursor.rowcount > 0
+
+
+async def get_antispam_allowlist(chat_id: int) -> dict[str, set[str]]:
+    cursor = await conn.execute(
+        "SELECT kind, value FROM antispam_allowlist WHERE chat_id = ? ORDER BY kind, value",
+        (chat_id,),
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    result = {kind: set() for kind in ALLOWLIST_KINDS}
+    for row in rows:
+        result[row["kind"]].add(row["value"])
+    return result

@@ -83,6 +83,37 @@ class Database:
             chat_id INTEGER PRIMARY KEY
         );
 
+        CREATE TABLE IF NOT EXISTS antispam_settings(
+            chat_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 1,
+            links INTEGER DEFAULT 1,
+            forwards INTEGER DEFAULT 1,
+            words INTEGER DEFAULT 1,
+            flood INTEGER DEFAULT 1,
+            repeats INTEGER DEFAULT 1,
+            flood_limit INTEGER DEFAULT 6,
+            flood_window INTEGER DEFAULT 8,
+            repeat_limit INTEGER DEFAULT 3,
+            repeat_window INTEGER DEFAULT 20,
+            mute_minutes INTEGER DEFAULT 5
+        );
+
+        CREATE TABLE IF NOT EXISTS antispam_allowlist(
+            chat_id INTEGER,
+            kind TEXT,
+            value TEXT,
+            UNIQUE(chat_id, kind, value)
+        );
+
+        CREATE TABLE IF NOT EXISTS mention_all_settings(
+            chat_id INTEGER PRIMARY KEY,
+            batch_size INTEGER DEFAULT 5,
+            delay_seconds INTEGER DEFAULT 2,
+            hidden INTEGER DEFAULT 1,
+            include_admins INTEGER DEFAULT 1,
+            emoji TEXT DEFAULT '🔔'
+        );
+
         CREATE TABLE IF NOT EXISTS chat_logs(
             chat_id INTEGER PRIMARY KEY,
             chat_type TEXT,

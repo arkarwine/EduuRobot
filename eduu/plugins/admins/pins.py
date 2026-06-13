@@ -2,13 +2,15 @@
 # Copyright (c) 2018-2026 Amano LLC
 
 from hydrogram import Client, filters
-from hydrogram.types import ChatPrivileges, Message
+from hydrogram.types import CallbackQuery, ChatPrivileges, InlineKeyboardMarkup, Message
 
 from config import PREFIXES
 from eduu.database.admins import check_if_antichannelpin, toggle_antichannelpin
 from eduu.utils import commands
+from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 
 @Client.on_message(filters.command("antichannelpin", PREFIXES))
@@ -62,8 +64,30 @@ async def unpin(c: Client, m: Message):
 
 @Client.on_message(filters.command(["unpinall", "unpin all"], PREFIXES))
 @require_admin(ChatPrivileges(can_pin_messages=True), allow_in_private=True)
-async def unpinall(c: Client, m: Message):
-    await c.unpin_all_chat_messages(m.chat.id)
+@use_chat_lang
+async def unpinall(c: Client, m: Message, s: Strings):
+    keyboard = InlineKeyboardMarkup(
+        [[
+            styled_button(
+                s("confirm_action_btn"),
+                callback_data=f"confirm_unpinall {m.from_user.id}",
+                style="danger",
+            ),
+            styled_button(s("cancel_action_btn"), callback_data="cancel_destructive"),
+        ]]
+    )
+    await send_styled_text(m, s("unpinall_confirm"), keyboard)
+
+
+@Client.on_callback_query(filters.regex(r"^confirm_unpinall "))
+@require_admin(ChatPrivileges(can_pin_messages=True), allow_in_private=True)
+@use_chat_lang
+async def confirm_unpinall(c: Client, m: CallbackQuery, s: Strings):
+    if m.from_user.id != int(m.data.split()[1]):
+        await m.answer(s("confirmation_wrong_admin"), show_alert=True)
+        return
+    await c.unpin_all_chat_messages(m.message.chat.id)
+    await edit_styled_text(m.message, s("unpinall_success"), None)
 
 
 commands.add_command("antichannelpin", "admin_pins")

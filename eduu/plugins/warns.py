@@ -2,22 +2,15 @@
 # Copyright (c) 2018-2026 Amano LLC
 
 from hydrogram import Client, filters
-from hydrogram.types import ChatPermissions, ChatPrivileges, Message
+from hydrogram.types import ChatPrivileges, Message
 
 from config import PREFIXES
-from eduu.database.warns import (
-    add_warns,
-    get_warn_action,
-    get_warns,
-    get_warns_limit,
-    reset_warns,
-    set_warn_action,
-    set_warns_limit,
-)
+from eduu.database.warns import get_warn_action, get_warns, reset_warns, set_warn_action, set_warns_limit
 from eduu.utils import commands, get_target_user
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.moderation import add_warning_and_apply_action
 
 
 def get_warn_reason_text(c: Client, m: Message) -> Message:
@@ -37,39 +30,22 @@ def get_warn_reason_text(c: Client, m: Message) -> Message:
 @use_chat_lang
 async def warn_user(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
-    warns_limit = await get_warns_limit(m.chat.id)
     check_admin = await m.chat.get_member(target_user.id)
     reason = get_warn_reason_text(c, m)
-    warn_action = await get_warn_action(m.chat.id)
 
     if check_admin.status in ADMIN_STATUSES:
         await m.reply_text(s("warn_cant_admin"))
         return
 
-    await add_warns(m.chat.id, target_user.id, 1)
-    user_warns = await get_warns(m.chat.id, target_user.id)
-    if user_warns >= warns_limit:
-        if warn_action == "ban":
-            await m.chat.ban_member(target_user.id)
-            warn_string = s("warn_banned")
-        elif warn_action == "mute":
-            await m.chat.restrict_member(target_user.id, ChatPermissions(can_send_messages=False))
-            warn_string = s("warn_muted")
-        elif warn_action == "kick":
-            await m.chat.ban_member(target_user.id)
-            await m.chat.unban_member(target_user.id)
-            warn_string = s("warn_kicked")
-        else:
-            return
-
-        warn_text = warn_string.format(target_user=target_user.mention, warn_count=user_warns)
-        await reset_warns(m.chat.id, target_user.id)
-    else:
-        warn_text = s("warn_warned").format(
-            target_user=target_user.mention,
-            warn_count=user_warns,
-            warn_limit=warns_limit,
-        )
+    user_warns, warns_limit, action = await add_warning_and_apply_action(m.chat, target_user.id)
+    key = {"ban": "warn_banned", "mute": "warn_muted", "kick": "warn_kicked", None: "warn_warned"}[
+        action
+    ]
+    warn_text = s(key).format(
+        target_user=target_user.mention,
+        warn_count=user_warns,
+        warn_limit=warns_limit,
+    )
     if reason:
         await m.reply_text(warn_text + "\n" + s("warn_reason_text").format(reason_text=reason))
     else:

@@ -12,6 +12,7 @@ from config import PREFIXES
 from eduu.utils import commands, extract_time, get_reason_text, sudofilter
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.moderation import apply_moderation_action
 from .remote_utils import (
     _format_chat_title,
     _format_reason,
@@ -39,7 +40,7 @@ async def cban(c: Client, m: Message, s: Strings):
 
     reason = get_reason_text(c, m)
     try:
-        await target_chat.ban_member(target_user.id)
+        await apply_moderation_action(target_chat, target_user.id, "ban")
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
         return
@@ -70,8 +71,7 @@ async def ckick(c: Client, m: Message, s: Strings):
 
     reason = get_reason_text(c, m)
     try:
-        await target_chat.ban_member(target_user.id)
-        await target_chat.unban_member(target_user.id)
+        await apply_moderation_action(target_chat, target_user.id, "kick")
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
         return
@@ -93,7 +93,7 @@ async def cunban(c: Client, m: Message, s: Strings):
 
     reason = get_reason_text(c, m)
     try:
-        await target_chat.unban_member(target_user.id)
+        await apply_moderation_action(target_chat, target_user.id, "unban")
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
         return
@@ -135,7 +135,7 @@ async def ctban(c: Client, m: Message, s: Strings):
 
     reason = _get_reason_text(m, 4)
     try:
-        await target_chat.ban_member(target_user.id, until_date=ban_time)
+        await apply_moderation_action(target_chat, target_user.id, "ban", until_date=ban_time)
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
         return

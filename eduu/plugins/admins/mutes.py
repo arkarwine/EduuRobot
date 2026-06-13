@@ -2,13 +2,14 @@
 # Copyright (c) 2018-2026 Amano LLC
 
 from hydrogram import Client, filters
-from hydrogram.types import ChatPermissions, ChatPrivileges, Message
+from hydrogram.types import ChatPrivileges, Message
 
 from config import PREFIXES
 from eduu.utils import commands, extract_time, get_reason_text, get_target_user
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.moderation import apply_moderation_action
 
 
 @Client.on_message(filters.command("mute", PREFIXES))
@@ -22,7 +23,7 @@ async def mute(c: Client, m: Message, s: Strings):
         await m.reply_text(s("mute_cannot_mute_admins"))
         return
 
-    await m.chat.restrict_member(target_user.id, ChatPermissions(can_send_messages=False))
+    await apply_moderation_action(m.chat, target_user.id, "mute")
     text = s("mute_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -39,7 +40,7 @@ async def mute(c: Client, m: Message, s: Strings):
 async def unmute(c: Client, m: Message, s: Strings):
     target_user = await get_target_user(c, m)
     reason = get_reason_text(c, m)
-    await m.chat.unban_member(target_user.id)
+    await apply_moderation_action(m.chat, target_user.id, "unmute")
     text = s("unmute_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -62,9 +63,10 @@ async def tmute(c: Client, m: Message, s: Strings):
     mute_time = await extract_time(m, split_time[1])
     if not mute_time:
         return
-    await m.chat.restrict_member(
+    await apply_moderation_action(
+        m.chat,
         m.reply_to_message.from_user.id,
-        ChatPermissions(can_send_messages=False),
+        "mute",
         until_date=mute_time,
     )
     await m.reply_text(
