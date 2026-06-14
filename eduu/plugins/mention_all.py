@@ -18,23 +18,40 @@ from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
 
 MAX_HEADING_LENGTH = 2000
+MAX_CALL_MEMBERS = 1000
+DEFAULT_CALL_MEMBERS = 100
 MENTION_EMOJIS = ("🔔", "✨", "📣", "👋", "💬", "⚡", "🎯", "📌", "🌟", "🙌")
 mention_tasks: dict[int, asyncio.Task] = {}
 
 
-def _get_heading(m: Message) -> str | None:
-    parts = m.text.split(None, 1)
-    if len(parts) > 1:
-        return escape(parts[1][:MAX_HEADING_LENGTH])
+def _heading_from_text_or_reply(m: Message, text: str = "") -> str | None:
+    if text.strip():
+        return escape(text.strip()[:MAX_HEADING_LENGTH])
     if m.reply_to_message:
-        text = m.reply_to_message.text or m.reply_to_message.caption
-        if text:
-            return escape(text[:MAX_HEADING_LENGTH])
+        reply_text = m.reply_to_message.text or m.reply_to_message.caption
+        if reply_text:
+            return escape(reply_text[:MAX_HEADING_LENGTH])
     return None
 
 
-def _mention(user, settings: dict[str, bool | int | str]) -> str:
-    if settings["hidden"]:
+def _command_text(m: Message) -> str:
+    parts = m.text.split(None, 1)
+    return parts[1] if len(parts) > 1 else ""
+
+
+def _parse_call(m: Message, default_batch: int) -> tuple[int, int, str | None]:
+    parts = _command_text(m).split()
+    amount = DEFAULT_CALL_MEMBERS
+    batch = default_batch
+    if parts and parts[0].isdigit():
+        amount = min(max(int(parts.pop(0)), 1), MAX_CALL_MEMBERS)
+    if parts and parts[0].isdigit():
+        batch = min(max(int(parts.pop(0)), 1), 20)
+    return amount, batch, _heading_from_text_or_reply(m, " ".join(parts))
+
+
+def _mention(user, hidden: bool) -> str:
+    if hidden:
         return f'<a href="tg://user?id={user.id}">{choice(MENTION_EMOJIS)}</a>'
     return user.mention
 
@@ -54,28 +71,37 @@ async def _mention_members(
     s: Strings,
     heading: str,
     settings: dict[str, bool | int | str],
+    *,
+    member_limit: int | None = None,
+    batch_size: int | None = None,
+    admins_only: bool = False,
 ) -> None:
     mentions: list[str] = []
     mentioned = 0
-    batch_size = int(settings["batch_size"])
+    batch_size = batch_size or int(settings["batch_size"])
     delay = int(settings["delay_seconds"])
+    current_task = asyncio.current_task()
     try:
         async for member in m.chat.get_members():
             user = member.user
             if not user or user.is_bot or user.is_deleted:
                 continue
-            if not settings["include_admins"] and member.status in ADMIN_STATUSES:
+            if admins_only and member.status not in ADMIN_STATUSES:
                 continue
-            mentions.append(_mention(user, settings))
-            if len(mentions) < batch_size:
+            if not admins_only and not settings["include_admins"] and member.status in ADMIN_STATUSES:
                 continue
-            await _send_batch(c, m.chat.id, f"{heading}\n\n{' '.join(mentions)}")
-            mentioned += len(mentions)
-            mentions.clear()
-            await asyncio.sleep(delay)
+            mentions.append(_mention(user, bool(settings["hidden"])))
+            mentioned += 1
+            if len(mentions) >= batch_size:
+                await _send_batch(c, m.chat.id, f"{heading}\n\n{' '.join(mentions)}")
+                mentions.clear()
+                if member_limit is None or mentioned < member_limit:
+                    await asyncio.sleep(delay)
+            if member_limit is not None and mentioned >= member_limit:
+                break
+
         if mentions:
             await _send_batch(c, m.chat.id, f"{heading}\n\n{' '.join(mentions)}")
-            mentioned += len(mentions)
         key = "mention_all_complete" if mentioned else "mention_all_no_members"
         await c.send_message(m.chat.id, s(key).format(count=mentioned))
     except asyncio.CancelledError:
@@ -87,19 +113,26 @@ async def _mention_members(
             s("mention_all_failed").format(error=escape(f"{type(error).__name__}: {error}")),
         )
     finally:
-        mention_tasks.pop(m.chat.id, None)
+        if mention_tasks.get(m.chat.id) is current_task:
+            mention_tasks.pop(m.chat.id, None)
 
 
-@Client.on_message(
-    (filters.command(["all", "tagall", "mentionall"], PREFIXES) | filters.regex(r"^@(all|everyone)\b"))
-    & filters.group
-)
-@require_admin()
-@use_chat_lang
-async def mention_all(c: Client, m: Message, s: Strings):
+async def _start_call(
+    c: Client,
+    m: Message,
+    s: Strings,
+    heading: str | None,
+    *,
+    member_limit: int | None = None,
+    batch_size: int | None = None,
+    admins_only: bool = False,
+) -> None:
     task = mention_tasks.get(m.chat.id)
     if task and not task.done():
         await m.reply_text(s("mention_all_already_running"))
+        return
+    if not heading:
+        await m.reply_text(s("mention_all_text_required"))
         return
     try:
         if (await m.chat.get_member("me")).status not in ADMIN_STATUSES:
@@ -108,25 +141,79 @@ async def mention_all(c: Client, m: Message, s: Strings):
     except RPCError as error:
         await m.reply_text(s("mention_all_failed").format(error=escape(str(error))))
         return
-    heading = _get_heading(m)
-    if not heading:
-        await m.reply_text(s("mention_all_text_required"))
-        return
+
     settings = await get_mention_settings(m.chat.id)
-    mention_tasks[m.chat.id] = asyncio.create_task(_mention_members(c, m, s, heading, settings))
+    task = asyncio.create_task(
+        _mention_members(
+            c,
+            m,
+            s,
+            heading,
+            settings,
+            member_limit=member_limit,
+            batch_size=batch_size,
+            admins_only=admins_only,
+        )
+    )
+    mention_tasks[m.chat.id] = task
     await m.reply_text(s("mention_all_started"))
 
 
-@Client.on_message(filters.command(["cancelall", "stopall"], PREFIXES) & filters.group)
+@Client.on_message(filters.command(["call", "callactive", "active"], PREFIXES) & filters.group)
+@require_admin()
+@use_chat_lang
+async def configurable_call(c: Client, m: Message, s: Strings):
+    settings = await get_mention_settings(m.chat.id)
+    amount, batch, heading = _parse_call(m, int(settings["batch_size"]))
+    await _start_call(c, m, s, heading, member_limit=amount, batch_size=batch)
+
+
+@Client.on_message(filters.command(["calladmins", "tagadmins"], PREFIXES) & filters.group)
+@require_admin()
+@use_chat_lang
+async def call_admins(c: Client, m: Message, s: Strings):
+    await _start_call(
+        c,
+        m,
+        s,
+        _heading_from_text_or_reply(m, _command_text(m)),
+        admins_only=True,
+    )
+
+
+@Client.on_message(filters.command("anybody", PREFIXES) & filters.group)
+@require_admin()
+@use_chat_lang
+async def call_anybody(c: Client, m: Message, s: Strings):
+    heading = _heading_from_text_or_reply(m, _command_text(m))
+    if not heading:
+        await m.reply_text(s("mention_all_text_required"))
+        return
+    members = [
+        member.user
+        async for member in m.chat.get_members()
+        if member.user and not member.user.is_bot and not member.user.is_deleted
+    ]
+    if not members:
+        await m.reply_text(s("mention_all_no_members"))
+        return
+    await m.reply_text(f"{heading}\n\n{_mention(choice(members), True)}")
+
+
+@Client.on_message(
+    filters.command(["stopcall", "stop"], PREFIXES) & filters.group
+)
 @require_admin()
 @use_chat_lang
 async def cancel_mention_all(c: Client, m: Message, s: Strings):
     task = mention_tasks.get(m.chat.id)
     if not task or task.done():
+        mention_tasks.pop(m.chat.id, None)
         await m.reply_text(s("mention_all_not_running"))
         return
     task.cancel()
     await m.reply_text(s("mention_all_stop_requested"))
+    await asyncio.gather(task, return_exceptions=True)
 
 
 @Client.on_message(filters.command("allstatus", PREFIXES) & filters.group)
@@ -167,5 +254,5 @@ async def configure_mention_all(c: Client, m: Message, s: Strings):
     await m.reply_text(s("mention_all_config_updated"))
 
 
-for command in ("all", "stopall", "allstatus", "setall"):
-    commands.add_command(command, "admin_mentions")
+for command in ("call", "calladmins", "anybody", "stop", "allstatus", "setall"):
+    commands.add_command(command, "mentions")

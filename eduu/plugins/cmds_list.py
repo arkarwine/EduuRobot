@@ -20,7 +20,7 @@ CATEGORY_ORDER = (
     "ai",
     "general",
     "admin_antispam",
-    "admin_mentions",
+    "mentions",
     "admin_warns",
     "admin_bans",
     "admin_mutes",
