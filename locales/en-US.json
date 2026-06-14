@@ -300,7 +300,7 @@
   "mention_all_bot_must_be_admin": "I must be an administrator to enumerate and mention all members.",
   "mention_all_config_help": "<b>Usage</b>\n<code>/setall batch 1-20</code>\n<code>/setall delay 1-30</code>\n<code>/setall hidden on/off</code>\n<code>/setall admins on/off</code>",
   "mention_all_config_updated": "Mention-all settings updated.",
-  "mention_all_settings": "<b>Call settings</b>\nRunning: {running}\nMentions per message: {batch}\nDelay between messages: {delay}s\nHidden emoji mentions: {hidden}\nInclude admins in /call: {admins}\n\nUse <code>/call [amount] [batch] [text]</code> for a limited call. Any admin can stop a running call with <code>/stop</code>.",
+  "mention_all_settings": "<b>Call settings</b>\nRunning: {running}\nMentions per message: {batch}\nDelay between messages: {delay}s\nHidden emoji mentions: {hidden}\nInclude admins in /all and /call: {admins}\n\nUse <code>/call [amount] [batch] [text]</code> for a limited call. Any admin can stop a running call with <code>/stop</code>.",
   "mention_all_stop_requested": "Stopping the active call...",
   "purge_confirm": "Delete every message from the replied message through this command?",
   "purge_reply_required": "Reply to the first message you want to purge.",
@@ -325,5 +325,6 @@
   "cmd_call_description": "Calls a limited number of members: /call [amount] [batch size] [text].",
   "cmd_calladmins_description": "Calls all chat administrators with the provided or replied text.",
   "cmd_anybody_description": "Calls one random chat member.",
-  "cmd_stop_description": "Stops the active call. Alias: /stopcall."
+  "cmd_stop_description": "Stops the active call. Alias: /stopcall.",
+  "cmd_all_description": "Calls every member of the group with the provided text. Alias: /callall."
 }

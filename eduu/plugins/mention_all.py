@@ -159,6 +159,13 @@ async def _start_call(
     await m.reply_text(s("mention_all_started"))
 
 
+@Client.on_message(filters.command(["all", "callall"], PREFIXES) & filters.group)
+@require_admin()
+@use_chat_lang
+async def call_all(c: Client, m: Message, s: Strings):
+    await _start_call(c, m, s, _heading_from_text_or_reply(m, _command_text(m)))
+
+
 @Client.on_message(filters.command(["call", "callactive", "active"], PREFIXES) & filters.group)
 @require_admin()
 @use_chat_lang
@@ -254,5 +261,5 @@ async def configure_mention_all(c: Client, m: Message, s: Strings):
     await m.reply_text(s("mention_all_config_updated"))
 
 
-for command in ("call", "calladmins", "anybody", "stop", "allstatus", "setall"):
+for command in ("all", "call", "calladmins", "anybody", "stop", "allstatus", "setall"):
     commands.add_command(command, "mentions")
