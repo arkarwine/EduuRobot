@@ -105,7 +105,6 @@ async def _mention_members(
         key = "mention_all_complete" if mentioned else "mention_all_no_members"
         await c.send_message(m.chat.id, s(key).format(count=mentioned))
     except asyncio.CancelledError:
-        await c.send_message(m.chat.id, s("mention_all_cancelled"))
         raise
     except Exception as error:
         await c.send_message(
@@ -218,9 +217,10 @@ async def cancel_mention_all(c: Client, m: Message, s: Strings):
         mention_tasks.pop(m.chat.id, None)
         await m.reply_text(s("mention_all_not_running"))
         return
+    status_message = await m.reply_text(s("mention_all_stop_requested"))
     task.cancel()
-    await m.reply_text(s("mention_all_stop_requested"))
     await asyncio.gather(task, return_exceptions=True)
+    await status_message.edit_text(s("mention_all_cancelled"))
 
 
 @Client.on_message(filters.command("allstatus", PREFIXES) & filters.group)
