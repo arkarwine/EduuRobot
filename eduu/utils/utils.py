@@ -9,6 +9,7 @@ import operator
 import re
 from datetime import datetime, timedelta
 from functools import partial
+from html import escape
 from string import Formatter
 from typing import TYPE_CHECKING
 
@@ -39,6 +40,77 @@ START_CHAR = ("'", '"', SMART_OPEN)
 
 
 http = AsyncSession(timeout=40)
+
+COMMAND_USAGES = {
+    "ai": "/ai <question> or reply with /ai",
+    "all": "/all <text> or reply with /all",
+    "allstatus": "/allstatus",
+    "admins": "/admins",
+    "antichannelpin": "/antichannelpin [on|off]",
+    "antispam": "/antispam [on|off|feature on/off|flood limit seconds|repeat limit seconds|mute minutes]",
+    "anybody": "/anybody <text> or reply with /anybody",
+    "ban": "/ban <user> [reason] or reply with /ban [reason]",
+    "call": "/call [amount] [batch size] <text> or reply with /call [amount] [batch size]",
+    "calladmins": "/calladmins <text> or reply with /calladmins",
+    "cat": "/cat",
+    "cban": "/cban <chat> <user> [reason]",
+    "ckick": "/ckick <chat> <user> [reason]",
+    "cleanservice": "/cleanservice [on|off]",
+    "cmute": "/cmute <chat> <user> [reason]",
+    "ctban": "/ctban <chat> <user> <duration> [reason]",
+    "ctmute": "/ctmute <chat> <user> <duration> [reason]",
+    "cunban": "/cunban <chat> <user> [reason]",
+    "cunmute": "/cunmute <chat> <user> [reason]",
+    "delnote": "/delnote <name>",
+    "delspamallow": "/delspamallow <user|link|source> <value>",
+    "delspamfilter": "/delspamfilter <word or phrase>",
+    "delfilter": "/delfilter <trigger>",
+    "dice": "/dice",
+    "dog": "/dog",
+    "filter": '/filter "trigger" <response> or reply with /filter "trigger"',
+    "filters": "/filters",
+    "gif": "/gif <search term>",
+    "id": "/id [user] or reply with /id",
+    "info": "/info [user] or reply with /info",
+    "kick": "/kick <user> [reason] or reply with /kick [reason]",
+    "mute": "/mute <user> [reason] or reply with /mute [reason]",
+    "note": '/note "name" <content> or reply with /note "name"',
+    "notes": "/notes",
+    "owner": "/owner",
+    "parsebutton": "/parsebutton <url> <button text>",
+    "pin": "/pin [loud] as a reply",
+    "ping": "/ping",
+    "print": "/print <url> or reply to a URL with /print",
+    "purge": "/purge as a reply to the first message",
+    "report": "/report as a reply to the message to report",
+    "resetrules": "/resetrules",
+    "resetwarns": "/resetwarns <user> or reply with /resetwarns",
+    "resetwelcome": "/resetwelcome",
+    "rules": "/rules",
+    "setall": "/setall <batch|delay|hidden|admins> <value>",
+    "setrules": "/setrules <rules text>",
+    "setwarnsaction": "/setwarnsaction <ban|mute|kick>",
+    "setwarnslimit": "/setwarnslimit <number>",
+    "setwelcome": "/setwelcome as a reply to the new welcome message",
+    "spamallow": "/spamallow <user|link|source> <value>",
+    "spamallowlist": "/spamallowlist",
+    "spamfilter": "/spamfilter <word or phrase>",
+    "spamfilters": "/spamfilters",
+    "start": "/start",
+    "stop": "/stop",
+    "tban": "/tban <duration> as a reply",
+    "tmute": "/tmute <duration> as a reply",
+    "tr": "/tr [language] <text> or reply with /tr [language]",
+    "unban": "/unban <user> [reason] or reply with /unban [reason]",
+    "unmute": "/unmute <user> [reason] or reply with /unmute [reason]",
+    "unpin": "/unpin as a reply",
+    "unpinall": "/unpinall",
+    "warn": "/warn <user> [reason] or reply with /warn [reason]",
+    "warns": "/warns <user> or reply with /warns",
+    "weather": "/weather <location>",
+    "welcome": "/welcome <on|off>",
+    "welcomeformat": "/welcomeformat",
+}
 
 
 def run_async[T, **P](
@@ -216,6 +288,7 @@ class BotCommands:
         self.commands[category].append({
             "command": command,
             "description_key": description_key,
+            "usage": COMMAND_USAGES.get(command, f"/{command}"),
             "aliases": aliases or [],
         })
 
@@ -235,7 +308,10 @@ class BotCommands:
         cmds_list.sort(key=operator.itemgetter("command"))
 
         for cmd in cmds_list:
-            res += f"<b>/{cmd['command']}</b> - <i>{s(cmd['description_key'])}</i>\n"
+            res += (
+                f"<b>/{cmd['command']}</b> - <i>{s(cmd['description_key'])}</i>\n"
+                f"<code>{escape(cmd['usage'])}</code>\n\n"
+            )
 
         return res
 

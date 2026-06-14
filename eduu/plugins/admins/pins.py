@@ -45,7 +45,11 @@ async def acp_action(c: Client, m: Message):
 
 @Client.on_message(filters.command("pin", PREFIXES))
 @require_admin(ChatPrivileges(can_pin_messages=True), allow_in_private=True)
-async def pin(c: Client, m: Message):
+@use_chat_lang
+async def pin(c: Client, m: Message, s: Strings):
+    if not m.reply_to_message:
+        await m.reply_text(s("pin_usage"))
+        return
     disable_notifications = "loud" not in m.text
 
     await c.pin_chat_message(
@@ -58,7 +62,11 @@ async def pin(c: Client, m: Message):
 
 @Client.on_message(filters.command("unpin", PREFIXES))
 @require_admin(ChatPrivileges(can_pin_messages=True), allow_in_private=True)
-async def unpin(c: Client, m: Message):
+@use_chat_lang
+async def unpin(c: Client, m: Message, s: Strings):
+    if not m.reply_to_message:
+        await m.reply_text(s("unpin_usage"))
+        return
     await c.unpin_chat_message(m.chat.id, m.reply_to_message.id)
 
 

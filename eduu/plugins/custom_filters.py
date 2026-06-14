@@ -88,7 +88,7 @@ async def save_filter(c: Client, m: Message, s: Strings):
     await m.reply_text(s("filters_add_success").format(trigger=trigger), quote=True)
 
 
-@Client.on_message(filters.command(["delfilter", "rmfilter", "stop"], PREFIXES))
+@Client.on_message(filters.command(["delfilter", "rmfilter"], PREFIXES))
 @require_admin(allow_in_private=True)
 @use_chat_lang
 async def delete_filter(c: Client, m: Message, s: Strings):

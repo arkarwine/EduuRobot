@@ -28,6 +28,9 @@ async def check_for_notes(chat_id, trigger):
 @use_chat_lang
 async def save_note(c: Client, m: Message, s: Strings):
     args = m.text.html.split(maxsplit=1)
+    if len(args) < 2:
+        await m.reply_text(s("notes_add_empty"), quote=True)
+        return
     split_text = split_quotes(args[1])
     trigger = split_text[0].lower()
 
@@ -35,7 +38,7 @@ async def save_note(c: Client, m: Message, s: Strings):
         await m.reply_text(s("notes_add_empty"), quote=True)
         return
 
-    if m.reply_to_message.media and m.reply_to_message.media.value in {
+    if m.reply_to_message and m.reply_to_message.media and m.reply_to_message.media.value in {
         "photo",
         "document",
         "video",
@@ -70,6 +73,9 @@ async def save_note(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def delete_note(c: Client, m: Message, s: Strings):
     args = m.text.html.split(maxsplit=1)
+    if len(args) < 2:
+        await m.reply_text(s("notes_remove_empty"), quote=True)
+        return
     trigger = args[1].lower()
     chat_id = m.chat.id
     check_note = await check_for_notes(chat_id, trigger)

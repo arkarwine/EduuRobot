@@ -30,11 +30,14 @@ async def mentionadmins(c: Client, m: Message, s: Strings):
 @Client.on_message(
     (filters.command(["report", "reportar"], PREFIXES) | filters.regex("^@admin"))
     & filters.group
-    & filters.reply
 )
 @use_chat_lang
 async def reportadmins(c: Client, m: Message, s: Strings):
+    if not m.reply_to_message:
+        await m.reply_text(s("report_usage"))
+        return
     if not m.reply_to_message.from_user:
+        await m.reply_text(s("report_no_user"))
         return
 
     check_admin = await m.chat.get_member(m.reply_to_message.from_user.id)
@@ -66,3 +69,4 @@ async def button_parse_helper(c: Client, m: Message, s: Strings):
 
 commands.add_command("admins", "general")
 commands.add_command("parsebutton", "general")
+commands.add_command("report", "general")
