@@ -147,6 +147,9 @@ class Database:
         await conn.execute(
             "UPDATE user_warns SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
         )
+        await conn.execute(
+            "UPDATE groups SET warn_action = 'mute' WHERE warn_action IS NULL OR warn_action = 'ban'"
+        )
 
         # Update the database
         await conn.commit()

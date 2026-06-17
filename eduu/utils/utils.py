@@ -89,7 +89,7 @@ COMMAND_USAGES = {
     "rules": "/rules",
     "setall": "/setall <batch|delay|hidden|admins> <value>",
     "setrules": "/setrules <rules text>",
-    "setwarnsaction": "/setwarnsaction <ban|mute|kick>",
+    "setwarnsaction": "/setwarnsaction <mute|kick>",
     "setwarnslimit": "/setwarnslimit <number>",
     "setwelcome": "/setwelcome as a reply to the new welcome message",
     "spamallow": "/spamallow <user|link|source> <value>",

@@ -107,7 +107,7 @@ async def set_warns_action_cmd(c: Client, m: Message, s: Strings):
         await m.reply_text(s("warn_action_status").format(action=warn_act))
         return
 
-    if m.command[1] not in {"ban", "mute", "kick"}:
+    if m.command[1] not in {"mute", "kick"}:
         await m.reply_text(s("warns_action_set_invlaid"))
         return
 

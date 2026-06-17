@@ -7,14 +7,24 @@ conn = database.get_conn()
 
 
 async def get_rules(chat_id):
-    cursor = await conn.execute("SELECT rules FROM groups WHERE chat_id = (?)", (chat_id,))
-    try:
-        row = await cursor.fetchone()
-        return row[0]
-    except IndexError:
-        return None
+    cursor = await conn.execute("SELECT rules FROM groups WHERE chat_id = ?", (chat_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row[0] if row else None
 
 
 async def set_rules(chat_id, rules):
-    await conn.execute("UPDATE groups SET rules = ? WHERE chat_id = ?", (rules, chat_id))
+    cursor = await conn.execute(
+        "UPDATE groups SET rules = ? WHERE chat_id = ?",
+        (rules, chat_id),
+    )
+    updated = cursor.rowcount
+    await cursor.close()
+
+    if updated == 0:
+        await conn.execute(
+            "INSERT INTO groups (chat_id, rules) VALUES (?, ?)",
+            (chat_id, rules),
+        )
+
     await conn.commit()

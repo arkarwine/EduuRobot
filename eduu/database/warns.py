@@ -26,7 +26,7 @@ async def get_warn_action(chat_id: int) -> str | None:
     cursor = await conn.execute("SELECT warn_action FROM groups WHERE chat_id = (?)", (chat_id,))
     row = await cursor.fetchone()
     await cursor.close()
-    return "ban" if not row or row[0] is None else row[0]
+    return "mute" if not row or row[0] in {None, "ban"} else row[0]
 
 
 async def set_warn_action(chat_id: int, action: str | None):

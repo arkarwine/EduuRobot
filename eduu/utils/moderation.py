@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from hydrogram.types import Chat, ChatPermissions
 
 from eduu.database.warns import add_warns, get_warn_action, get_warns, get_warns_limit, reset_warns
+
+WARNING_MUTE_DAYS = 7
 
 
 async def apply_moderation_action(
@@ -54,6 +56,14 @@ async def add_warning_and_apply_action(chat: Chat, user_id: int) -> tuple[int, i
         return count, limit, None
 
     action = await get_warn_action(chat.id)
-    await apply_moderation_action(chat, user_id, action)
+    if action == "mute":
+        await apply_moderation_action(
+            chat,
+            user_id,
+            action,
+            until_date=datetime.now() + timedelta(days=WARNING_MUTE_DAYS),
+        )
+    else:
+        await apply_moderation_action(chat, user_id, action)
     await reset_warns(chat.id, user_id)
     return count, limit, action
