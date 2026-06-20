@@ -12,7 +12,6 @@ from hydrogram.raw.all import layer
 
 from config import API_HASH, API_ID, DISABLED_PLUGINS, LOG_CHAT, TOKEN, WORKERS
 from eduu.utils import commands
-from eduu.utils.localization import default_language, get_locale_string
 
 from . import __commit__, __version_number__
 
@@ -49,6 +48,8 @@ class Eduu(Client):
         )
 
         try:
+            from eduu.utils.localization import default_language, get_locale_string  # noqa: PLC0415
+
             await self.set_bot_commands(
                 commands.get_bot_commands(
                     lambda key: get_locale_string(default_language, key)
