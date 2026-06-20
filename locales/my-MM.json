@@ -332,5 +332,14 @@
   "notes_remove_empty": "<b>Usage:</b> <code>/delnote name</code>.",
   "cmd_report_description": "Reports a replied message to the chat administrators.",
   "report_usage": "<b>Usage:</b> Reply to the message you want administrators to review with <code>/report</code>.",
-  "report_no_user": "Telegram did not provide a user account for the replied message, so it cannot be reported."
+  "report_no_user": "Telegram did not provide a user account for the replied message, so it cannot be reported.",
+  "remote_mod_bulk_usage": "သုံးနည်း - /{command} <chat_id|@username> [အကြောင်းပြချက်]",
+  "remote_mod_bulk_time_usage": "သုံးနည်း - /{command} <chat_id|@username> <အချိန်> [အကြောင်းပြချက်]",
+  "remote_mod_bulk_result": "<b>{chat_title} တွင် remote {action} all ပြီးပါပြီ</b>\nအောင်မြင် - <b>{success}</b>\nမအောင်မြင် - <b>{failed}</b>\nကျော်ခဲ့သော admin/bot - <b>{skipped}</b>",
+  "remote_mod_state_failed": "Telegram က {chat_title} အတွက် remote {action} request ကို လက်ခံခဲ့သော်လည်း user သည် မျှော်လင့်ထားသော moderated state မဖြစ်သေးပါ။ Target chat ထဲတွင် ကျွန်ုပ်၏ ban/restrict permission ကို စစ်ဆေးပါ။",
+  "cmd_cbanall_description": "Bot ရှိသော remote group တွင် admin မဟုတ်သော bot မဟုတ်သော member အားလုံးကို ban ပြုလုပ်သည်။",
+  "cmd_ckickall_description": "Bot ရှိသော remote group တွင် admin မဟုတ်သော bot မဟုတ်သော member အားလုံးကို kick ပြုလုပ်သည်။",
+  "cmd_cmuteall_description": "Bot ရှိသော remote group တွင် admin မဟုတ်သော bot မဟုတ်သော member အားလုံးကို mute ပြုလုပ်သည်။",
+  "cmd_ctbanall_description": "Remote group တွင် admin မဟုတ်သော bot မဟုတ်သော member အားလုံးကို ယာယီ ban ပြုလုပ်သည်။",
+  "cmd_ctmuteall_description": "Remote group တွင် admin မဟုတ်သော bot မဟုတ်သော member အားလုံးကို ယာယီ mute ပြုလုပ်သည်။"
 }

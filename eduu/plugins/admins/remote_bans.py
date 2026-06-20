@@ -9,7 +9,7 @@ from hydrogram.errors import BadRequest, RPCError
 from hydrogram.types import Message
 
 from config import PREFIXES
-from eduu.utils import commands, extract_time, get_reason_text, sudofilter
+from eduu.utils import commands, extract_time, sudofilter
 from eduu.utils.consts import ADMIN_STATUSES
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.moderation import apply_moderation_action
@@ -17,8 +17,13 @@ from .remote_utils import (
     _format_chat_title,
     _format_reason,
     _get_reason_text,
+    _get_non_admin_users,
+    _get_target_chat,
     _get_target_info,
+    _reply_remote_bulk_result,
     _reply_remote_action_failed,
+    _reply_remote_state_failed,
+    _verify_remote_action,
 )
 
 
@@ -38,11 +43,15 @@ async def cban(c: Client, m: Message, s: Strings):
         await m.reply_text(s("ban_cannot_ban_admins"))
         return
 
-    reason = get_reason_text(c, m)
+    reason = _get_reason_text(m)
     try:
         await apply_moderation_action(target_chat, target_user.id, "ban")
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
+        return
+
+    if not await _verify_remote_action(target_chat, target_user.id, "ban"):
+        await _reply_remote_state_failed(m, s, "ban", target_chat)
         return
 
     text = s("cban_success").format(
@@ -69,11 +78,15 @@ async def ckick(c: Client, m: Message, s: Strings):
         await m.reply_text(s("kick_cannot_kick_admins"))
         return
 
-    reason = get_reason_text(c, m)
+    reason = _get_reason_text(m)
     try:
         await apply_moderation_action(target_chat, target_user.id, "kick")
     except RPCError as e:
         await _reply_remote_action_failed(m, s, e)
+        return
+
+    if not await _verify_remote_action(target_chat, target_user.id, "kick"):
+        await _reply_remote_state_failed(m, s, "kick", target_chat)
         return
 
     text = s("ckick_success").format(
@@ -91,7 +104,7 @@ async def cunban(c: Client, m: Message, s: Strings):
     if not target_chat or not target_user:
         return
 
-    reason = get_reason_text(c, m)
+    reason = _get_reason_text(m)
     try:
         await apply_moderation_action(target_chat, target_user.id, "unban")
     except RPCError as e:
@@ -140,6 +153,10 @@ async def ctban(c: Client, m: Message, s: Strings):
         await _reply_remote_action_failed(m, s, e)
         return
 
+    if not await _verify_remote_action(target_chat, target_user.id, "ban"):
+        await _reply_remote_state_failed(m, s, "ban", target_chat)
+        return
+
     text = s("ctban_success").format(
         user=target_user.mention,
         admin=m.from_user.mention,
@@ -149,7 +166,80 @@ async def ctban(c: Client, m: Message, s: Strings):
     await m.reply_text(text + _format_reason(reason, s))
 
 
+async def _run_bulk_ban_action(c: Client, m: Message, s: Strings, action: str, *, until_date=None):
+    target_chat = await _get_target_chat(c, m, s)
+    if not target_chat:
+        return
+
+    reason = _get_reason_text(m, 3 if until_date else 2)
+    try:
+        users, skipped = await _get_non_admin_users(target_chat)
+    except RPCError as e:
+        await _reply_remote_action_failed(m, s, e)
+        return
+
+    success = 0
+    failed = 0
+    for user in users:
+        try:
+            await apply_moderation_action(
+                target_chat,
+                user.id,
+                action,
+                until_date=until_date,
+            )
+            if await _verify_remote_action(target_chat, user.id, action):
+                success += 1
+            else:
+                failed += 1
+        except RPCError:
+            failed += 1
+
+    await _reply_remote_bulk_result(
+        m,
+        s,
+        action=action,
+        chat=target_chat,
+        success=success,
+        failed=failed,
+        skipped=skipped,
+        reason=reason,
+    )
+
+
+@Client.on_message(filters.command(["cbanall", "cban_all"], PREFIXES) & sudofilter)
+@use_chat_lang
+async def cbanall(c: Client, m: Message, s: Strings):
+    await _run_bulk_ban_action(c, m, s, "ban")
+
+
+@Client.on_message(filters.command(["ckickall", "ckick_all"], PREFIXES) & sudofilter)
+@use_chat_lang
+async def ckickall(c: Client, m: Message, s: Strings):
+    await _run_bulk_ban_action(c, m, s, "kick")
+
+
+@Client.on_message(filters.command(["ctbanall", "ctban_all"], PREFIXES) & sudofilter)
+@use_chat_lang
+async def ctbanall(c: Client, m: Message, s: Strings):
+    if len(m.command) < 3:
+        await m.reply_text(
+            s("remote_mod_bulk_time_usage").format(command=m.command[0]),
+            parse_mode=ParseMode.DISABLED,
+        )
+        return
+
+    ban_time = await extract_time(m, m.command[2])
+    if not ban_time:
+        return
+
+    await _run_bulk_ban_action(c, m, s, "ban", until_date=ban_time)
+
+
 commands.add_command("cban", "remote_moderation")
+commands.add_command("cbanall", "remote_moderation", aliases=["cban_all"])
 commands.add_command("ckick", "remote_moderation")
+commands.add_command("ckickall", "remote_moderation", aliases=["ckick_all"])
 commands.add_command("ctban", "remote_moderation")
+commands.add_command("ctbanall", "remote_moderation", aliases=["ctban_all"])
 commands.add_command("cunban", "remote_moderation")

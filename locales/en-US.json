@@ -332,5 +332,14 @@
   "notes_remove_empty": "<b>Usage:</b> <code>/delnote name</code>.",
   "cmd_report_description": "Reports a replied message to the chat administrators.",
   "report_usage": "<b>Usage:</b> Reply to the message you want administrators to review with <code>/report</code>.",
-  "report_no_user": "Telegram did not provide a user account for the replied message, so it cannot be reported."
+  "report_no_user": "Telegram did not provide a user account for the replied message, so it cannot be reported.",
+  "remote_mod_bulk_usage": "Usage: /{command} <chat_id|@username> [reason]",
+  "remote_mod_bulk_time_usage": "Usage: /{command} <chat_id|@username> <time> [reason]",
+  "remote_mod_bulk_result": "<b>Remote {action} all finished in {chat_title}</b>\nSucceeded: <b>{success}</b>\nFailed: <b>{failed}</b>\nSkipped admins/bots: <b>{skipped}</b>",
+  "remote_mod_state_failed": "Telegram accepted the remote {action} request for {chat_title}, but the user is still not in the expected moderated state. Check my ban/restrict permissions in that target chat.",
+  "cmd_cbanall_description": "Bans all non-admin, non-bot members in a remote group where the bot is present.",
+  "cmd_ckickall_description": "Kicks all non-admin, non-bot members in a remote group where the bot is present.",
+  "cmd_cmuteall_description": "Mutes all non-admin, non-bot members in a remote group where the bot is present.",
+  "cmd_ctbanall_description": "Temporarily bans all non-admin, non-bot members in a remote group.",
+  "cmd_ctmuteall_description": "Temporarily mutes all non-admin, non-bot members in a remote group."
 }
