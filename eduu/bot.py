@@ -7,10 +7,12 @@ import time
 import hydrogram
 from hydrogram import Client
 from hydrogram.enums import ParseMode
-from hydrogram.errors import BadRequest
+from hydrogram.errors import BadRequest, RPCError
 from hydrogram.raw.all import layer
 
 from config import API_HASH, API_ID, DISABLED_PLUGINS, LOG_CHAT, TOKEN, WORKERS
+from eduu.utils import commands
+from eduu.utils.localization import default_language, get_locale_string
 
 from . import __commit__, __version_number__
 
@@ -45,6 +47,15 @@ class Eduu(Client):
             layer,
             self.me.username,
         )
+
+        try:
+            await self.set_bot_commands(
+                commands.get_bot_commands(
+                    lambda key: get_locale_string(default_language, key)
+                )
+            )
+        except RPCError as e:
+            logger.warning("Unable to register Telegram bot commands: %s", e)
 
         from .database.restarted import del_restarted, get_restarted  # noqa: PLC0415
 

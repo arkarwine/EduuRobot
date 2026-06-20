@@ -11,6 +11,7 @@ from config import TOKEN
 from eduu.utils import http
 
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
+MEDIA_CAPTION_LIMIT = 1024
 
 
 def button_to_dict(button: InlineKeyboardButton) -> dict[str, Any]:
@@ -90,6 +91,18 @@ async def edit_styled_text(
     disable_web_page_preview: bool = False,
 ) -> None:
     try:
+        if message.media and len(text) > MEDIA_CAPTION_LIMIT:
+            await _request(
+                "sendMessage",
+                {
+                    "chat_id": message.chat.id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": disable_web_page_preview,
+                    "reply_markup": _markup_to_dict(reply_markup),
+                },
+            )
+            return
         if message.media:
             await _request(
                 "editMessageCaption",
@@ -115,6 +128,13 @@ async def edit_styled_text(
         )
     except Exception:
         if message.media:
+            if len(text) > MEDIA_CAPTION_LIMIT:
+                await message.reply_text(
+                    text,
+                    reply_markup=_unstyled_markup(reply_markup),
+                    disable_web_page_preview=disable_web_page_preview,
+                )
+                return
             await message.edit_caption(text, reply_markup=_unstyled_markup(reply_markup))
         else:
             await message.edit_text(

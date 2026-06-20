@@ -17,6 +17,7 @@ from curl_cffi.requests import AsyncSession
 from hydrogram import Client, filters
 from hydrogram.enums import ChatMemberStatus, MessageEntityType
 from hydrogram.types import (
+    BotCommand,
     CallbackQuery,
     ChatPrivileges,
     InlineKeyboardButton,
@@ -319,6 +320,21 @@ class BotCommands:
             )
 
         return res
+
+    def get_bot_commands(self, s: Strings) -> list[BotCommand]:
+        bot_commands = []
+        for category in self.commands:
+            bot_commands += self.commands[category]
+
+        bot_commands.sort(key=operator.itemgetter("command"))
+
+        return [
+            BotCommand(
+                command=cmd["command"],
+                description=re.sub(r"<[^>]+>", "", s(cmd["description_key"]))[:256],
+            )
+            for cmd in bot_commands[:100]
+        ]
 
 
 class InlineBotCommands:
