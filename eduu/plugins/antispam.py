@@ -320,7 +320,7 @@ async def list_spam_filters_cmd(c: Client, m: Message, s: Strings):
     await m.reply_text(s("spam_filters_list").format(words="\n".join(f" - <code>{escape(w)}</code>" for w in words)))
 
 
-@Client.on_message(filters.group & filters.incoming & ~filters.service, group=3)
+@Client.on_message(filters.group & filters.incoming & ~filters.service & ~filters.linked_channel, group=3)
 @use_chat_lang
 async def detect_spam(c: Client, m: Message, s: Strings):
     settings = await get_antispam_settings(m.chat.id)
@@ -338,6 +338,8 @@ async def detect_spam(c: Client, m: Message, s: Strings):
     word_spam = bool(settings["words"] and _contains_spam_word(m, await get_spam_filters(m.chat.id)))
 
     if not m.from_user:
+        if m.sender_chat and m.sender_chat.id == m.chat.id:
+            return
         if link_spam or forward_spam or word_spam:
             try:
                 await c.delete_messages(m.chat.id, [m.id])
