@@ -289,7 +289,21 @@ async def clear_reactions(client: Client, message: Message, s: Strings):
     await message.reply_text(s("autoreply_reactions_cleared"))
 
 
-@Client.on_message(filters.group & ~filters.service & ~filters.command & ~filters.bot, group=2)
+def _should_handle_group_message(_, __, message: Message) -> bool:
+    if not message.from_user or message.from_user.is_bot:
+        return False
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        return False
+    if message.service:
+        return False
+    text = message.text or ""
+    caption = message.caption or ""
+    if text.startswith("/") or caption.startswith("/"):
+        return False
+    return True
+
+
+@Client.on_message(filters.create(_should_handle_group_message), group=2)
 async def handle_auto_reply(client: Client, message: Message):
     if not message.from_user or message.from_user.is_bot or message.chat.type not in {
         ChatType.GROUP,
