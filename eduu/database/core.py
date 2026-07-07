@@ -134,10 +134,7 @@ class Database:
             rate_limit_per_minute,
             reactions_enabled,
             reaction_chance
-        )
-        SELECT 1, enabled, reply_chance, cooldown_seconds, rate_limit_per_minute, reactions_enabled, reaction_chance
-        FROM auto_reply_groups
-        LIMIT 1;
+        ) VALUES (1, 1, 50, 10, 0, 1, 25);
 
         CREATE TABLE IF NOT EXISTS auto_reply_responses(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
