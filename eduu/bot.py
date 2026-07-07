@@ -9,11 +9,11 @@ from importlib import import_module
 import hydrogram
 from hydrogram import Client
 from hydrogram.enums import ParseMode
-from hydrogram.errors import BadRequest, RPCError
+from hydrogram.errors import BadRequest
 from hydrogram.raw.all import layer
 
 from config import API_HASH, API_ID, DISABLED_PLUGINS, LOG_CHAT, TOKEN, WORKERS
-from eduu.utils import commands
+from eduu.utils import commands, http
 
 from . import __commit__, __version_number__
 
@@ -35,6 +35,33 @@ def _load_command_modules() -> None:
             import_module(module_name)
         except Exception as e:
             logger.warning("Skipping command registration import for %s: %s", module_name, e)
+
+
+async def _set_native_command_menu(bot_commands) -> None:
+    command_payload = [
+        {"command": command.command, "description": command.description}
+        for command in bot_commands
+    ]
+    scopes = [
+        None,
+        {"type": "all_private_chats"},
+        {"type": "all_group_chats"},
+        {"type": "all_chat_administrators"},
+    ]
+    for scope in scopes:
+        payload = {"commands": command_payload}
+        if scope is not None:
+            payload["scope"] = scope
+        response = await http.post(
+            f"https://api.telegram.org/bot{TOKEN}/setMyCommands",
+            json=payload,
+        )
+        data = response.json()
+        if not data.get("ok"):
+            scope_name = scope["type"] if scope else "default"
+            raise RuntimeError(
+                f"{scope_name}: {data.get('description', 'setMyCommands failed')}"
+            )
 
 
 class Eduu(Client):
@@ -74,12 +101,10 @@ class Eduu(Client):
                 lambda key: get_locale_string(default_language, key)
             )
             if bot_commands:
-                await self.set_bot_commands(bot_commands)
+                await _set_native_command_menu(bot_commands)
                 logger.info("Registered %s Telegram bot menu commands.", len(bot_commands))
             else:
                 logger.warning("No Telegram bot menu commands were collected; keeping existing menu.")
-        except RPCError as e:
-            logger.warning("Unable to register Telegram bot commands: %s", e)
         except Exception:
             logger.exception("Unable to register Telegram bot commands.")
 

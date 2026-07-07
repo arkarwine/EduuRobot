@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Migrate old MongoDB autoreply data into this bot's SQLite global store.
+"""Migrate old MongoDB autoreply data into this bot's SQLite store.
 
 The old AutoReply bot stored data in MongoDB collections:
   - groups
   - bot_settings
+  - users
 
 The new bot reads autoreply data from SQLite rows with chat_id 0 only.
+Broadcast targets are read from SQLite chat_logs, so this script can also
+seed chat_logs from old MongoDB groups/users.
 """
 
 from __future__ import annotations
@@ -60,6 +63,41 @@ def connect_mongo(uri: str):
 def ensure_target_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
+        CREATE TABLE IF NOT EXISTS groups(
+            chat_id INTEGER PRIMARY KEY,
+            welcome TEXT,
+            welcome_enabled INTEGER,
+            goodbye TEXT,
+            goodbye_enabled INTEGER,
+            rules TEXT,
+            warns_limit INTEGER,
+            chat_lang TEXT,
+            cached_admins,
+            antichannelpin INTEGER,
+            delservicemsgs INTEGER,
+            antispam INTEGER DEFAULT 1,
+            warn_action TEXT,
+            tiktok_autodl INTEGER DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS users(
+            user_id INTEGER PRIMARY KEY,
+            chat_lang TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS channels(
+            chat_id INTEGER PRIMARY KEY,
+            chat_lang TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS chat_logs(
+            chat_id INTEGER PRIMARY KEY,
+            chat_type TEXT,
+            first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            chat_title TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS autoreply_settings(
             chat_id INTEGER PRIMARY KEY,
             enabled INTEGER DEFAULT 1,
@@ -100,7 +138,7 @@ def ensure_target_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-def clear_target(target: sqlite3.Connection) -> None:
+def clear_autoreply_target(target: sqlite3.Connection) -> None:
     target.execute("DELETE FROM autoreply_settings WHERE chat_id = ?", (GLOBAL_AUTOREPLY_ID,))
     target.execute("DELETE FROM autoreply_responses WHERE chat_id = ?", (GLOBAL_AUTOREPLY_ID,))
     target.execute("DELETE FROM autoreply_reactions WHERE chat_id = ?", (GLOBAL_AUTOREPLY_ID,))
@@ -108,6 +146,10 @@ def clear_target(target: sqlite3.Connection) -> None:
         "DELETE FROM autoreply_keyword_reactions WHERE chat_id = ?",
         (GLOBAL_AUTOREPLY_ID,),
     )
+
+
+def clear_chat_logs_target(target: sqlite3.Connection) -> None:
+    target.execute("DELETE FROM chat_logs")
 
 
 def normalize_keywords(keywords: Iterable[Any]) -> list[str]:
@@ -147,6 +189,33 @@ def first_value(data: dict[str, Any], *keys: str) -> Any:
         if key in data and data[key] is not None:
             return data[key]
     return None
+
+
+def int_id(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def document_id(document: dict[str, Any]) -> int | None:
+    return int_id(first_value(document, "_id", "id", "chat_id", "user_id"))
+
+
+def chat_title(document: dict[str, Any], fallback: str) -> str:
+    value = first_value(
+        document,
+        "title",
+        "chat_title",
+        "name",
+        "first_name",
+        "username",
+    )
+    if value is None:
+        return fallback
+    return str(value)
 
 
 def response_to_row(
@@ -343,6 +412,92 @@ def group_query(source_chat_ids: list[int]) -> dict[str, Any]:
     return {"_id": {"$in": source_chat_ids}}
 
 
+def upsert_chat_log(
+    target: sqlite3.Connection,
+    chat_id: int,
+    chat_type: str,
+    title: str,
+) -> bool:
+    cursor = target.execute(
+        """
+        INSERT OR IGNORE INTO chat_logs(chat_id, chat_type, chat_title)
+        VALUES (?, ?, ?)
+        """,
+        (chat_id, chat_type, title),
+    )
+    inserted = cursor.rowcount > 0
+    target.execute(
+        """
+        UPDATE chat_logs
+        SET chat_type = ?, chat_title = ?, last_seen = CURRENT_TIMESTAMP
+        WHERE chat_id = ?
+        """,
+        (chat_type, title, chat_id),
+    )
+    return inserted
+
+
+def ensure_group_row(target: sqlite3.Connection, chat_id: int) -> bool:
+    cursor = target.execute(
+        """
+        INSERT OR IGNORE INTO groups(chat_id, welcome_enabled, antispam, tiktok_autodl)
+        VALUES (?, ?, ?, ?)
+        """,
+        (chat_id, 1, 1, 1),
+    )
+    return cursor.rowcount > 0
+
+
+def ensure_user_row(target: sqlite3.Connection, user_id: int) -> bool:
+    cursor = target.execute(
+        "INSERT OR IGNORE INTO users(user_id) VALUES (?)",
+        (user_id,),
+    )
+    return cursor.rowcount > 0
+
+
+def migrate_chat_logs(
+    db,
+    target: sqlite3.Connection,
+    source_chat_ids: list[int],
+    *,
+    include_users: bool,
+) -> dict[str, int]:
+    counts = {
+        "broadcast_group_targets": 0,
+        "broadcast_user_targets": 0,
+        "groups_table_rows": 0,
+        "users_table_rows": 0,
+        "skipped_group_targets": 0,
+        "skipped_user_targets": 0,
+    }
+
+    for document in db["groups"].find(group_query(source_chat_ids)):
+        chat_id = document_id(document)
+        if chat_id is None:
+            counts["skipped_group_targets"] += 1
+            continue
+        title = chat_title(document, str(chat_id))
+        if ensure_group_row(target, chat_id):
+            counts["groups_table_rows"] += 1
+        if upsert_chat_log(target, chat_id, "ChatType.SUPERGROUP", title):
+            counts["broadcast_group_targets"] += 1
+
+    if include_users and "users" in db.list_collection_names():
+        for document in db["users"].find({}):
+            user_id = document_id(document)
+            if user_id is None:
+                counts["skipped_user_targets"] += 1
+                continue
+            title = chat_title(document, str(user_id))
+            if ensure_user_row(target, user_id):
+                counts["users_table_rows"] += 1
+            if upsert_chat_log(target, user_id, "ChatType.PRIVATE", title):
+                counts["broadcast_user_targets"] += 1
+
+    return counts
+
+
 def migrate_group_data(
     db,
     target: sqlite3.Connection,
@@ -441,6 +596,11 @@ def list_source(db) -> None:
     if not found:
         print("  none")
 
+    print("\nBroadcast targets:")
+    print("  groups:", db["groups"].count_documents({}))
+    users_count = db["users"].count_documents({}) if "users" in db.list_collection_names() else 0
+    print("  users:", users_count)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -473,9 +633,29 @@ def parse_args() -> argparse.Namespace:
         help="Only migrate group-local data, not old global responses/settings.",
     )
     parser.add_argument(
+        "--broadcast-only",
+        action="store_true",
+        help="Only migrate broadcast targets from old groups/users into chat_logs.",
+    )
+    parser.add_argument(
+        "--skip-chat-logs",
+        action="store_true",
+        help="Do not migrate old groups/users into chat_logs for broadcast.",
+    )
+    parser.add_argument(
+        "--skip-users",
+        action="store_true",
+        help="Do not migrate old users as private broadcast targets.",
+    )
+    parser.add_argument(
         "--clear-target",
         action="store_true",
         help="Delete current global autoreply SQLite data before migrating.",
+    )
+    parser.add_argument(
+        "--clear-chat-logs",
+        action="store_true",
+        help="Delete current SQLite chat_logs before migrating broadcast targets.",
     )
     parser.add_argument(
         "--list-source",
@@ -495,6 +675,15 @@ def main() -> int:
     if args.global_only and args.no_global:
         print("--global-only and --no-global cannot be used together.", file=sys.stderr)
         return 2
+    if args.broadcast_only and (
+        args.global_only or args.no_global or args.skip_chat_logs or args.clear_target
+    ):
+        print(
+            "--broadcast-only cannot be combined with --global-only, --no-global, "
+            "--skip-chat-logs, or --clear-target.",
+            file=sys.stderr,
+        )
+        return 2
     if not args.target_db.exists() and not args.list_source:
         print(f"Target database does not exist: {args.target_db}", file=sys.stderr)
         return 2
@@ -510,14 +699,25 @@ def main() -> int:
         try:
             ensure_target_schema(target)
             if args.clear_target:
-                clear_target(target)
+                clear_autoreply_target(target)
+            if args.clear_chat_logs:
+                clear_chat_logs_target(target)
 
             counts: dict[str, int] = {}
-            if not args.no_global:
+            if not args.broadcast_only and not args.no_global:
                 counts["settings"] = migrate_settings(db, target)
                 counts.update(migrate_global_data(db, target))
-            if not args.global_only:
+            if not args.broadcast_only and not args.global_only:
                 counts.update(migrate_group_data(db, target, args.source_chat_id))
+            if not args.skip_chat_logs:
+                counts.update(
+                    migrate_chat_logs(
+                        db,
+                        target,
+                        args.source_chat_id,
+                        include_users=not args.skip_users,
+                    )
+                )
 
             if args.apply:
                 target.commit()
@@ -527,7 +727,7 @@ def main() -> int:
                 action = "Dry run"
 
             group_filter = ", ".join(map(str, args.source_chat_id)) or "all groups"
-            print(f"{action} MongoDB data into SQLite global chat_id 0.")
+            print(f"{action} MongoDB data into SQLite.")
             print(f"Group filter: {group_filter}")
             for key, count in counts.items():
                 print(f"  {key}: {count}")
