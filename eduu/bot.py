@@ -50,13 +50,15 @@ class Eduu(Client):
         try:
             from eduu.utils.localization import default_language, get_locale_string  # noqa: PLC0415
 
-            await self.set_bot_commands(
-                commands.get_bot_commands(
-                    lambda key: get_locale_string(default_language, key)
-                )
+            bot_commands = commands.get_bot_commands(
+                lambda key: get_locale_string(default_language, key)
             )
+            await self.set_bot_commands(bot_commands)
+            logger.info("Registered %s Telegram bot menu commands.", len(bot_commands))
         except RPCError as e:
             logger.warning("Unable to register Telegram bot commands: %s", e)
+        except Exception:
+            logger.exception("Unable to register Telegram bot commands.")
 
         from .database.restarted import del_restarted, get_restarted  # noqa: PLC0415
 

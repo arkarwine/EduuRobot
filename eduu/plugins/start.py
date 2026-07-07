@@ -41,20 +41,12 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
             ]
         )
 
-    add_to_chat_row = [
-        styled_button(
-            s("start_add_to_chat_btn"),
-            url=f"https://t.me/{c.me.username}?startgroup=new",
-            style="success",
-        ),
-    ]
     buttons.extend(
         [
             [
                 styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
                 styled_button(s("start_language_btn"), callback_data="chlang", style="primary"),
             ],
-            add_to_chat_row,
             [
                 styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
                 styled_button(s("start_owner_btn"), url=OWNER_URL, style="primary"),
@@ -63,9 +55,19 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
     )
 
     if support_group := getattr(config, "SUPPORT_GROUP", ""):
-        add_to_chat_row.append(
-            styled_button(s("start_support_group_btn"), url=support_group, style="primary")
+        buttons.append(
+            [styled_button(s("start_support_group_btn"), url=support_group, style="primary")]
         )
+
+    buttons.append(
+        [
+            styled_button(
+                s("start_add_to_chat_btn"),
+                url=f"https://t.me/{c.me.username}?startgroup=new",
+                style="success",
+            ),
+        ]
+    )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     start_text = s("start_private")
