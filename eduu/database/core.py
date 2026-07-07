@@ -121,6 +121,39 @@ class Database:
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             chat_title TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_settings(
+            id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 1,
+            reply_chance INTEGER DEFAULT 50,
+            cooldown_seconds INTEGER DEFAULT 10,
+            rate_limit_per_minute INTEGER DEFAULT 0,
+            reactions_enabled INTEGER DEFAULT 1,
+            reaction_chance INTEGER DEFAULT 25
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_chat_settings(
+            chat_id INTEGER PRIMARY KEY,
+            enabled INTEGER,
+            reply_chance INTEGER,
+            cooldown_seconds INTEGER,
+            rate_limit_per_minute INTEGER,
+            reactions_enabled INTEGER,
+            reaction_chance INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_responses(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            text TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_reactions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            reaction TEXT NOT NULL,
+            UNIQUE(chat_id, reaction)
+        );
         """
         )
 
