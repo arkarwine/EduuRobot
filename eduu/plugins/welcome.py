@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 MEMBER_STATUSES = {"member", "administrator", "owner"}
 GREETING_DELETE_DELAY = 10
+PROFILE_PHOTO_TOKENS = {"{profile_photo}", "{user_photo}"}
 _recent_member_updates: dict[tuple[int, int, str], float] = {}
 
 
@@ -57,7 +58,7 @@ def _message_media(src: Message) -> tuple[str | None, str | None, str | None]:
 async def _preview_template(c: Client, m: Message, text: str | None, s: Strings) -> Message:
     if not text:
         return await m.reply_text(s("welcome_set_success"))
-    preview = text.format(
+    preview = text.replace("{profile_photo}", "").replace("{user_photo}", "").format(
         id=m.from_user.id,
         username=m.from_user.username,
         mention=m.from_user.mention,
@@ -135,7 +136,7 @@ def _template_from_command_or_reply(m: Message) -> str | None:
 
 
 async def _preview_default_template(m: Message, text: str) -> Message:
-    preview = text.format(
+    preview = text.replace("{profile_photo}", "").replace("{user_photo}", "").format(
         id=m.from_user.id,
         username=m.from_user.username,
         mention=m.from_user.mention,
@@ -147,6 +148,15 @@ async def _preview_default_template(m: Message, text: str) -> Message:
         count=1,
     )
     return await m.reply_text(preview)
+
+
+async def _profile_photo_file_id(c: Client, user_id: int) -> str | None:
+    try:
+        async for photo in c.get_chat_photos(user_id, limit=1):
+            return photo.file_id
+    except Exception:
+        return None
+    return None
 
 
 async def _set_default_template_message(
@@ -225,6 +235,8 @@ async def _send_template(
         return
 
     template = template or default_text
+    use_profile_photo = any(token in template for token in PROFILE_PHOTO_TOKENS)
+    template = template.replace("{profile_photo}", "").replace("{user_photo}", "")
     count = (
         await c.get_chat_members_count(chat_id)
         if "count" in get_format_keys(template)
@@ -250,11 +262,26 @@ async def _send_template(
         count=count,
     )
     text, buttons = button_parser(text)
+    if not text.strip():
+        text = mention
     reply_markup = InlineKeyboardMarkup(buttons) if buttons else None
 
     sent = None
     try:
-        if media_file_id and media_type == "photo":
+        profile_photo = (
+            await _profile_photo_file_id(c, members[0].id)
+            if use_profile_photo and len(members) == 1
+            else None
+        )
+        if profile_photo:
+            sent = await c.send_photo(
+                chat_id=chat_id,
+                photo=profile_photo,
+                caption=text,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML,
+            )
+        elif media_file_id and media_type == "photo":
             sent = await c.send_photo(
                 chat_id=chat_id,
                 photo=media_file_id,
