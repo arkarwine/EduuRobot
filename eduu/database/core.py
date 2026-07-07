@@ -121,6 +121,52 @@ class Database:
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             chat_title TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS autoreply_settings(
+            chat_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 1,
+            mode TEXT DEFAULT 'random',
+            reply_chance INTEGER DEFAULT 50,
+            cooldown_seconds INTEGER DEFAULT 10,
+            rate_limit_per_minute INTEGER DEFAULT 0,
+            reactions_enabled INTEGER DEFAULT 1,
+            reaction_chance INTEGER DEFAULT 25
+        );
+
+        CREATE TABLE IF NOT EXISTS autoreply_responses(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            mode TEXT NOT NULL DEFAULT 'random',
+            keywords TEXT,
+            response_type TEXT NOT NULL,
+            text TEXT,
+            source_chat_id INTEGER,
+            source_message_id INTEGER,
+            label TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS autoreply_reactions(
+            chat_id INTEGER NOT NULL,
+            reaction TEXT NOT NULL,
+            UNIQUE(chat_id, reaction)
+        );
+
+        CREATE TABLE IF NOT EXISTS autoreply_keyword_reactions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER NOT NULL,
+            keywords TEXT NOT NULL,
+            reaction TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS autoreply_states(
+            user_id INTEGER PRIMARY KEY,
+            capture_chat_id INTEGER,
+            capture_keywords TEXT,
+            capture_reaction INTEGER DEFAULT 0,
+            capture_keyword_prompt INTEGER DEFAULT 0,
+            capture_reaction_prompt INTEGER DEFAULT 0
+        );
         """
         )
 
@@ -148,7 +194,11 @@ class Database:
             "UPDATE user_warns SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
         )
         await conn.execute(
-            "UPDATE groups SET warn_action = 'mute' WHERE warn_action IS NULL OR warn_action = 'ban'"
+            """
+            UPDATE groups
+            SET warn_action = 'mute'
+            WHERE warn_action IS NULL OR warn_action = 'ban'
+            """
         )
 
         # Update the database
