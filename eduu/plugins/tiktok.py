@@ -2,13 +2,14 @@
 # Copyright (c) 2018-2026 Amano LLC
 
 import asyncio
+import logging
+import re
 import tempfile
 from pathlib import Path
 from typing import Optional
 
 from hydrogram import Client, filters
 from hydrogram.enums import ParseMode
-from hydrogram.errors import BadRequest
 from hydrogram.types import Message
 from yt_dlp import YoutubeDL
 
@@ -17,6 +18,8 @@ from eduu.database.tiktok import get_tiktok, toggle_tiktok
 from eduu.utils import commands
 from eduu.utils.decorators import require_admin
 from eduu.utils.localization import Strings, use_chat_lang
+
+logger = logging.getLogger(__name__)
 
 TIKTOK_URL_REGEX = r"https?://(?:www\.)?(?:vm\.tiktok\.com/|tiktok\.com/[\w\-/.?&=]+)"
 
@@ -35,22 +38,26 @@ YTDLP_OPTS = {
 
 
 def _download_tiktok_sync(url: str, download_path: Path) -> Optional[Path]:
-    with YoutubeDL(YTDLP_OPTS) as ydl:
-        info = ydl.extract_info(url, download=False)
-        filename = ydl.prepare_filename(info)
+    try:
+        with YoutubeDL(YTDLP_OPTS) as ydl:
+            info = ydl.extract_info(url, download=False)
+            filename = ydl.prepare_filename(info)
 
-    output_path = download_path / Path(filename).name
-    with YoutubeDL({**YTDLP_OPTS, "outtmpl": str(output_path)}) as ydl:
-        ydl.download([url])
+        output_path = download_path / Path(filename).name
+        with YoutubeDL({**YTDLP_OPTS, "outtmpl": str(output_path)}) as ydl:
+            ydl.download([url])
 
-    return output_path if output_path.exists() else None
+        return output_path if output_path.exists() else None
+    except Exception as exc:
+        logger.exception("TikTok download failed for url %s", url)
+        return None
 
 
 async def _download_tiktok(url: str, download_path: Path) -> Optional[Path]:
     return await asyncio.to_thread(_download_tiktok_sync, url, download_path)
 
 
-async def _send_video(c: Client, m: Message, file_path: Path, caption: str | None = None) -> None:
+async def _send_video(c: Client, m: Message, file_path: Path, caption: str | None = None) -> bool:
     try:
         await c.send_video(
             chat_id=m.chat.id,
@@ -58,8 +65,11 @@ async def _send_video(c: Client, m: Message, file_path: Path, caption: str | Non
             caption=caption or "",
             parse_mode=ParseMode.HTML,
         )
-    except BadRequest as e:
-        await m.reply_text(f"Error sending video: {e}")
+        return True
+    except Exception as exc:
+        logger.exception("Failed to send TikTok video for %s", m.chat.id)
+        await m.reply_text(f"Error sending video: {exc}")
+        return False
 
 
 async def _process_tiktok_url(c: Client, m: Message, url: str, s: Strings) -> None:
@@ -77,14 +87,19 @@ async def _process_tiktok_url(c: Client, m: Message, url: str, s: Strings) -> No
             return
 
         await message.edit_text(s("tiktok_dl_upload"))
-        await _send_video(c, m, video, s("tiktok_dl_caption"))
-        try:
-            await message.delete()
-        except Exception:
-            pass
+        sent = await _send_video(c, m, video, s("tiktok_dl_caption"))
+        if sent:
+            try:
+                await message.delete()
+            except Exception:
+                pass
 
 
-@Client.on_message(filters.command("tiktok", PREFIXES) & filters.group)
+@Client.on_message(
+    filters.command("tiktok", PREFIXES)
+    & ~filters.command(["tiktok on", "tiktok off"], PREFIXES)
+    & filters.group
+)
 @require_admin()
 @use_chat_lang
 async def manual_tiktok_download(c: Client, m: Message, s: Strings):
@@ -112,7 +127,7 @@ async def disable_tiktok_auto(c: Client, m: Message, s: Strings):
     await m.reply_text(s("tiktok_disable"))
 
 
-@Client.on_message(filters.regex(TIKTOK_URL_REGEX) & filters.group)
+@Client.on_message(~filters.command(["tiktok", "tiktok on", "tiktok off"], PREFIXES) & filters.regex(TIKTOK_URL_REGEX) & filters.group)
 @use_chat_lang
 async def auto_tiktok_detect(c: Client, m: Message, s: Strings):
     if not await get_tiktok(m.chat.id):
@@ -122,7 +137,6 @@ async def auto_tiktok_detect(c: Client, m: Message, s: Strings):
     if not url:
         return
 
-    import re
     match = re.search(TIKTOK_URL_REGEX, url)
     if not match:
         return

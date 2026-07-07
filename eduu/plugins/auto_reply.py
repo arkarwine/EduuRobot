@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from functools import partial
 
 from hydrogram import Client, filters
-from hydrogram.enums import ButtonStyle, ChatMemberStatus, ChatType, ParseMode
+from hydrogram.enums import ChatMemberStatus, ChatType, ParseMode
 from hydrogram.errors import ChatAdminRequired, Forbidden, RPCError, ReactionInvalid
 from hydrogram.types import (
     BotCommand,
@@ -22,6 +22,7 @@ from hydrogram.types import (
     Message,
     ReplyParameters,
 )
+from eduu.utils.buttons import ButtonStyle
 
 from config import API_HASH, API_ID, DISABLED_PLUGINS, LOG_CHAT, PREFIXES, TOKEN, WORKERS
 from eduu.database.auto_reply import (

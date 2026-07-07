@@ -35,6 +35,7 @@ class Database:
             cached_admins,
             antichannelpin INTEGER,
             delservicemsgs INTEGER,
+            tiktok_enabled INTEGER DEFAULT 0,
             antispam INTEGER DEFAULT 1,
             warn_action TEXT
         );
