@@ -150,9 +150,15 @@ async def _preview_default_template(m: Message, text: str) -> Message:
     return await m.reply_text(preview)
 
 
-async def _profile_photo_file_id(c: Client, user_id: int) -> str | None:
+async def _profile_photo_file_id(c: Client, user) -> str | None:
+    photo = getattr(user, "photo", None)
+    for attr in ("big_file_id", "small_file_id", "file_id"):
+        file_id = getattr(photo, attr, None)
+        if file_id:
+            return file_id
+
     try:
-        async for photo in c.get_chat_photos(user_id, limit=1):
+        async for photo in c.get_chat_photos(user.id, limit=1):
             return photo.file_id
     except Exception:
         return None
@@ -269,7 +275,7 @@ async def _send_template(
     sent = None
     try:
         profile_photo = (
-            await _profile_photo_file_id(c, members[0].id)
+            await _profile_photo_file_id(c, members[0])
             if use_profile_photo and len(members) == 1
             else None
         )
