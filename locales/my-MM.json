@@ -307,7 +307,7 @@
   "warns_count_string": "{target_user} တွင် warning {warns_count} ခု ရှိပါတယ်။",
   "weather_language": "my",
   "weather_usage": "<b>အသုံးပြုနည်း:</b> <code>/weather location or city</code> — <i>location သို့မဟုတ် city</i> ရဲ့ weather အချက်အလက်များ ရယူပါ။",
-  "goodbye_default": "{username} ကံမကုန်ရင် ပြန်ဆုံချင်ပါသေးတယ် သူငယ်ချင်းရေ တာ့တာ",
+  "goodbye_default": "{username} ကံမကုန်ရင် ပြန်ဆုံချင်ပါသေးတယ် သူငယ်ချင်းရေ တာ့တာ\n[ရည်းစားလိုချင်ရင်ဂျွိင်း](buttonurl:https://t.me/NweMusicx_bot)",
   "goodbye_mode_disable": "{chat_title} အတွက် goodbye message ကို ယခု ပိတ်လိုက်ပါပြီ။",
   "goodbye_mode_enable": "{chat_title} အတွက် goodbye message ကို ယခု ဖွင့်လိုက်ပါပြီ။",
   "goodbye_mode_invalid": "<b>အသုံးပြုနည်း:</b> <code>/goodbye on</code> သို့မဟုတ် <code>/goodbye off</code>။",
