@@ -37,7 +37,7 @@ class Database:
             delservicemsgs INTEGER,
             antispam INTEGER DEFAULT 1,
             warn_action TEXT,
-            tiktok_autodl INTEGER DEFAULT 0
+            tiktok_autodl INTEGER DEFAULT 1
         );
 
         CREATE TABLE IF NOT EXISTS users(

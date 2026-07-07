@@ -9,7 +9,7 @@ conn = database.get_conn()
 
 async def _ensure_columns() -> None:
     try:
-        await conn.execute("ALTER TABLE groups ADD COLUMN tiktok_autodl INTEGER DEFAULT 0")
+        await conn.execute("ALTER TABLE groups ADD COLUMN tiktok_autodl INTEGER DEFAULT 1")
         await conn.commit()
     except Exception:
         pass
@@ -23,7 +23,9 @@ async def get_tiktok_autodl(chat_id: int) -> bool:
     )
     row = await cursor.fetchone()
     await cursor.close()
-    return bool(row and row[0])
+    if not row or row[0] is None:
+        return True
+    return bool(row[0])
 
 
 async def set_tiktok_autodl(chat_id: int, enabled: bool) -> None:
