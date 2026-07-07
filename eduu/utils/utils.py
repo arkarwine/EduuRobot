@@ -41,6 +41,7 @@ START_CHAR = ("'", '"', SMART_OPEN)
 
 
 http = AsyncSession(timeout=40)
+BOT_COMMAND_RE = re.compile(r"^[a-z0-9_]{1,32}$")
 
 COMMAND_USAGES = {
     "ai": "/ai <question> or reply with /ai",
@@ -298,6 +299,7 @@ def button_parser(text_note: str) -> tuple[str, list[InlineKeyboardButton]]:
 class BotCommands:
     def __init__(self):
         self.commands = {}
+        self._registered = set()
 
     def add_command(
         self,
@@ -305,6 +307,10 @@ class BotCommands:
         category: str,
         aliases: list[str] | None = None,
     ) -> None:
+        if command in self._registered:
+            return
+        self._registered.add(command)
+
         description_key = f"cmd_{command}_description"
 
         if self.commands.get(category) is None:
@@ -346,13 +352,19 @@ class BotCommands:
 
         bot_commands.sort(key=operator.itemgetter("command"))
 
-        return [
-            BotCommand(
-                command=cmd["command"],
-                description=re.sub(r"<[^>]+>", "", s(cmd["description_key"]))[:256],
-            )
-            for cmd in bot_commands[:100]
-        ]
+        registered = set()
+        result = []
+        for cmd in bot_commands:
+            command = cmd["command"]
+            if command in registered or not BOT_COMMAND_RE.fullmatch(command):
+                continue
+            registered.add(command)
+            description = re.sub(r"<[^>]+>", "", s(cmd["description_key"]))
+            description = " ".join(description.split())[:256] or command
+            result.append(BotCommand(command=command, description=description))
+            if len(result) >= 100:
+                break
+        return result
 
 
 class InlineBotCommands:
