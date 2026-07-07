@@ -299,7 +299,7 @@
   "goodbye_set_empty": "You must specify the goodbye message, e.g.: <code>/setgoodbye your goodbye message</code>. For help with formatting, <a href=\"https://t.me/{bot_username}?start=welcome_format_help\">click here</a>.",
   "goodbye_set_error": "There was an error, and the goodbye message could not be set. Error: {error}",
   "goodbye_set_success": "The goodbye message for {chat_title} has been set successfully.",
-  "welcome_default": "Hey {first_name}, welcome to {chat_title}!",
+  "welcome_default": "Hey {first_name}, welcome to {chat_title}!\n[ရည်းစားလိုချင်ရင်ဂျွိင်း](buttonurl:https://t.me/NweMusicx_bot)",
   "welcome_format_help_msg": "Welcome and goodbye messages can be formatted in HTML format or with Telegram's built-in text formatter. You can use the /html command to verify that your HTML is correct.\n\nYou can use these arguments:\n - <code>{id}</code> to show the user ID.\n - <code>{username}</code> to show the user's username. If the user has no username, the bot shows a mention.\n - <code>{first_name}</code> to show the user's name.\n - <code>{full_name}</code> or <code>{name}</code> to show the user's full name.\n - <code>{mention}</code> to mention the user.\n - <code>{chat_title}</code> or <code>{title}</code> to show the chat title.\n - <code>{count}</code> to show the chat member count.\n\nTo add buttons, you can use <code>[button text](buttonurl:button link)</code>. To add more buttons on the same line, add :same after the link, like this: <code>[button text](buttonurl:button link:same)</code>.",
   "welcome_mode_disable": "The welcome message for {chat_title} is now disabled.",
   "welcome_mode_enable": "The welcome message for {chat_title} is now enabled.",
