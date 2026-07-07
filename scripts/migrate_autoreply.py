@@ -1,47 +1,60 @@
 #!/usr/bin/env python3
-"""Migrate old per-chat autoreply data into the new global autoreply store.
+"""Migrate old MongoDB autoreply data into this bot's SQLite global store.
 
-The new bot reads autoreply data from chat_id 0 only. This script copies data
-from an old SQLite database into that global target row.
+The old AutoReply bot stored data in MongoDB collections:
+  - groups
+  - bot_settings
+
+The new bot reads autoreply data from SQLite rows with chat_id 0 only.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 GLOBAL_AUTOREPLY_ID = 0
-
+DEFAULT_REACTIONS = ["👍", "❤️", "😂", "🎉", "👀"]
 DEFAULT_SETTINGS = {
-    "enabled": 1,
-    "mode": "random",
+    "enabled": True,
+    "reply_mode": "random",
     "reply_chance": 50,
     "cooldown_seconds": 10,
     "rate_limit_per_minute": 0,
-    "reactions_enabled": 1,
+    "reactions_enabled": True,
     "reaction_chance": 25,
+    "reactions": list(DEFAULT_REACTIONS),
 }
 
 
-def connect(path: Path) -> sqlite3.Connection:
+def import_mongo_client():
+    try:
+        from pymongo import MongoClient
+    except ImportError:
+        print(
+            "pymongo is required for Mongo migration. Install it with: pip install pymongo",
+            file=sys.stderr,
+        )
+        raise
+    return MongoClient
+
+
+def connect_sqlite(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def table_exists(conn: sqlite3.Connection, table: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-        (table,),
-    ).fetchone()
-    return bool(row)
-
-
-def columns(conn: sqlite3.Connection, table: str) -> set[str]:
-    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+def connect_mongo(uri: str):
+    mongo_client = import_mongo_client()
+    client = mongo_client(uri, serverSelectionTimeoutMS=5000)
+    client.admin.command("ping")
+    return client
 
 
 def ensure_target_schema(conn: sqlite3.Connection) -> None:
@@ -87,171 +100,6 @@ def ensure_target_schema(conn: sqlite3.Connection) -> None:
     )
 
 
-def source_filter(table_cols: set[str], chat_ids: list[int]) -> tuple[str, list[Any]]:
-    if not chat_ids or "chat_id" not in table_cols:
-        return "", []
-    placeholders = ", ".join("?" for _ in chat_ids)
-    return f" WHERE chat_id IN ({placeholders})", list(chat_ids)
-
-
-def list_source_chats(source: sqlite3.Connection) -> None:
-    if not table_exists(source, "autoreply_responses"):
-        raise RuntimeError("Source database has no autoreply_responses table.")
-    response_cols = columns(source, "autoreply_responses")
-    if "chat_id" not in response_cols:
-        count = source.execute("SELECT COUNT(*) FROM autoreply_responses").fetchone()[0]
-        print(f"Source responses: {count} rows, no chat_id column.")
-        return
-    rows = source.execute(
-        """
-        SELECT chat_id, COUNT(*) AS responses
-        FROM autoreply_responses
-        GROUP BY chat_id
-        ORDER BY responses DESC, chat_id
-        """
-    ).fetchall()
-    if not rows:
-        print("No source autoreply responses found.")
-        return
-    print("Source chats with autoreply responses:")
-    for row in rows:
-        print(f"  {row['chat_id']}: {row['responses']} responses")
-
-
-def row_value(row: sqlite3.Row | None, key: str, default: Any) -> Any:
-    if row is None or key not in row.keys():
-        return default
-    value = row[key]
-    return default if value is None else value
-
-
-def pick_settings_row(
-    source: sqlite3.Connection,
-    chat_ids: list[int],
-) -> sqlite3.Row | None:
-    if not table_exists(source, "autoreply_settings"):
-        return None
-    settings_cols = columns(source, "autoreply_settings")
-    where, params = source_filter(settings_cols, chat_ids)
-    query = "SELECT * FROM autoreply_settings" + where
-    if "chat_id" in settings_cols:
-        query += " ORDER BY chat_id"
-    query += " LIMIT 1"
-    return source.execute(query, params).fetchone()
-
-
-def migrate_settings(
-    source: sqlite3.Connection,
-    target: sqlite3.Connection,
-    chat_ids: list[int],
-) -> int:
-    row = pick_settings_row(source, chat_ids)
-    values = {key: row_value(row, key, value) for key, value in DEFAULT_SETTINGS.items()}
-    target.execute(
-        """
-        INSERT OR REPLACE INTO autoreply_settings(
-            chat_id, enabled, mode, reply_chance, cooldown_seconds,
-            rate_limit_per_minute, reactions_enabled, reaction_chance
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            GLOBAL_AUTOREPLY_ID,
-            values["enabled"],
-            values["mode"],
-            values["reply_chance"],
-            values["cooldown_seconds"],
-            values["rate_limit_per_minute"],
-            values["reactions_enabled"],
-            values["reaction_chance"],
-        ),
-    )
-    return 1 if row else 0
-
-
-def migrate_responses(
-    source: sqlite3.Connection,
-    target: sqlite3.Connection,
-    chat_ids: list[int],
-) -> int:
-    if not table_exists(source, "autoreply_responses"):
-        return 0
-    response_cols = columns(source, "autoreply_responses")
-    where, params = source_filter(response_cols, chat_ids)
-    rows = source.execute("SELECT * FROM autoreply_responses" + where, params).fetchall()
-    for row in rows:
-        target.execute(
-            """
-            INSERT INTO autoreply_responses(
-                chat_id, mode, keywords, response_type, text,
-                source_chat_id, source_message_id, label, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                GLOBAL_AUTOREPLY_ID,
-                row_value(row, "mode", "random"),
-                row_value(row, "keywords", "[]"),
-                row_value(row, "response_type", "text"),
-                row_value(row, "text", None),
-                row_value(row, "source_chat_id", None),
-                row_value(row, "source_message_id", None),
-                row_value(row, "label", None),
-                row_value(row, "created_at", None),
-            ),
-        )
-    return len(rows)
-
-
-def migrate_reactions(
-    source: sqlite3.Connection,
-    target: sqlite3.Connection,
-    chat_ids: list[int],
-) -> int:
-    if not table_exists(source, "autoreply_reactions"):
-        return 0
-    reaction_cols = columns(source, "autoreply_reactions")
-    where, params = source_filter(reaction_cols, chat_ids)
-    rows = source.execute("SELECT * FROM autoreply_reactions" + where, params).fetchall()
-    for row in rows:
-        target.execute(
-            """
-            INSERT OR IGNORE INTO autoreply_reactions(chat_id, reaction)
-            VALUES (?, ?)
-            """,
-            (GLOBAL_AUTOREPLY_ID, row_value(row, "reaction", "")),
-        )
-    return len(rows)
-
-
-def migrate_keyword_reactions(
-    source: sqlite3.Connection,
-    target: sqlite3.Connection,
-    chat_ids: list[int],
-) -> int:
-    if not table_exists(source, "autoreply_keyword_reactions"):
-        return 0
-    reaction_cols = columns(source, "autoreply_keyword_reactions")
-    where, params = source_filter(reaction_cols, chat_ids)
-    rows = source.execute(
-        "SELECT * FROM autoreply_keyword_reactions" + where,
-        params,
-    ).fetchall()
-    for row in rows:
-        target.execute(
-            """
-            INSERT INTO autoreply_keyword_reactions(chat_id, keywords, reaction)
-            VALUES (?, ?, ?)
-            """,
-            (
-                GLOBAL_AUTOREPLY_ID,
-                row_value(row, "keywords", "[]"),
-                row_value(row, "reaction", ""),
-            ),
-        )
-    return len(rows)
-
-
 def clear_target(target: sqlite3.Connection) -> None:
     target.execute("DELETE FROM autoreply_settings WHERE chat_id = ?", (GLOBAL_AUTOREPLY_ID,))
     target.execute("DELETE FROM autoreply_responses WHERE chat_id = ?", (GLOBAL_AUTOREPLY_ID,))
@@ -262,11 +110,344 @@ def clear_target(target: sqlite3.Connection) -> None:
     )
 
 
+def normalize_keywords(keywords: Iterable[Any]) -> list[str]:
+    normalized = []
+    for keyword in keywords:
+        value = " ".join(str(keyword).casefold().strip().split())
+        if value and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def safe_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def preview(value: Any, limit: int = 80) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        text = " ".join(value.split())
+    elif isinstance(value, dict):
+        text = (
+            value.get("label")
+            or value.get("text")
+            or value.get("caption")
+            or value.get("description")
+            or safe_json(value)
+        )
+        text = " ".join(str(text).split())
+    else:
+        text = " ".join(str(value).split())
+    return text[: limit - 3] + "..." if len(text) > limit else text
+
+
+def first_value(data: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in data and data[key] is not None:
+            return data[key]
+    return None
+
+
+def response_to_row(
+    response: Any,
+    *,
+    mode: str,
+    keywords: list[str] | None = None,
+) -> dict[str, Any]:
+    if isinstance(response, str):
+        return {
+            "mode": mode,
+            "keywords": keywords or [],
+            "response_type": "text",
+            "text": response,
+            "source_chat_id": None,
+            "source_message_id": None,
+            "label": preview(response),
+        }
+
+    if isinstance(response, dict):
+        source_chat_id = first_value(
+            response,
+            "source_chat_id",
+            "chat_id",
+            "from_chat_id",
+        )
+        source_message_id = first_value(
+            response,
+            "source_message_id",
+            "message_id",
+            "id",
+        )
+        text = first_value(response, "text", "caption")
+        if source_chat_id is not None and source_message_id is not None:
+            return {
+                "mode": mode,
+                "keywords": keywords or [],
+                "response_type": "message",
+                "text": text,
+                "source_chat_id": int(source_chat_id),
+                "source_message_id": int(source_message_id),
+                "label": preview(response),
+            }
+        if text:
+            return {
+                "mode": mode,
+                "keywords": keywords or [],
+                "response_type": "text",
+                "text": str(text),
+                "source_chat_id": None,
+                "source_message_id": None,
+                "label": preview(response),
+            }
+
+    dumped = safe_json(response)
+    return {
+        "mode": mode,
+        "keywords": keywords or [],
+        "response_type": "text",
+        "text": dumped,
+        "source_chat_id": None,
+        "source_message_id": None,
+        "label": preview(dumped),
+    }
+
+
+def insert_response(target: sqlite3.Connection, row: dict[str, Any]) -> None:
+    target.execute(
+        """
+        INSERT INTO autoreply_responses(
+            chat_id, mode, keywords, response_type, text,
+            source_chat_id, source_message_id, label
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            GLOBAL_AUTOREPLY_ID,
+            row["mode"],
+            safe_json(row["keywords"]),
+            row["response_type"],
+            row["text"],
+            row["source_chat_id"],
+            row["source_message_id"],
+            row["label"],
+        ),
+    )
+
+
+def insert_reaction(target: sqlite3.Connection, reaction: Any) -> bool:
+    reaction = str(reaction).strip()
+    if not reaction:
+        return False
+    cursor = target.execute(
+        """
+        INSERT OR IGNORE INTO autoreply_reactions(chat_id, reaction)
+        VALUES (?, ?)
+        """,
+        (GLOBAL_AUTOREPLY_ID, reaction),
+    )
+    return cursor.rowcount > 0
+
+
+def insert_keyword_reaction(
+    target: sqlite3.Connection,
+    keywords: list[str],
+    reaction: Any,
+) -> bool:
+    reaction = str(reaction).strip()
+    keywords = normalize_keywords(keywords)
+    if not keywords or not reaction:
+        return False
+    target.execute(
+        """
+        INSERT INTO autoreply_keyword_reactions(chat_id, keywords, reaction)
+        VALUES (?, ?, ?)
+        """,
+        (GLOBAL_AUTOREPLY_ID, safe_json(keywords), reaction),
+    )
+    return True
+
+
+def global_config(db) -> dict[str, Any]:
+    document = db["bot_settings"].find_one({"_id": "global_config"}) or {}
+    return DEFAULT_SETTINGS | document
+
+
+def migrate_settings(db, target: sqlite3.Connection) -> int:
+    config = global_config(db)
+    target.execute(
+        """
+        INSERT OR REPLACE INTO autoreply_settings(
+            chat_id, enabled, mode, reply_chance, cooldown_seconds,
+            rate_limit_per_minute, reactions_enabled, reaction_chance
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            GLOBAL_AUTOREPLY_ID,
+            int(bool(config.get("enabled", True))),
+            config.get("reply_mode", "random"),
+            int(config.get("reply_chance", 50)),
+            int(config.get("cooldown_seconds", 10)),
+            int(config.get("rate_limit_per_minute", 0)),
+            int(bool(config.get("reactions_enabled", True))),
+            int(config.get("reaction_chance", 25)),
+        ),
+    )
+    return 1
+
+
+def migrate_global_data(db, target: sqlite3.Connection) -> dict[str, int]:
+    counts = {
+        "global_responses": 0,
+        "global_keyword_responses": 0,
+        "global_reactions": 0,
+        "global_keyword_reactions": 0,
+    }
+
+    responses_doc = db["bot_settings"].find_one({"_id": "global_responses"}) or {}
+    for response in responses_doc.get("responses", []):
+        insert_response(target, response_to_row(response, mode="random"))
+        counts["global_responses"] += 1
+
+    keyword_doc = db["bot_settings"].find_one({"_id": "global_keyword_responses"}) or {}
+    for entry in keyword_doc.get("responses", []):
+        keywords = normalize_keywords(entry.get("keywords", []))
+        insert_response(
+            target,
+            response_to_row(entry.get("response"), mode="keyword", keywords=keywords),
+        )
+        counts["global_keyword_responses"] += 1
+
+    for reaction in global_config(db).get("reactions", DEFAULT_REACTIONS):
+        if insert_reaction(target, reaction):
+            counts["global_reactions"] += 1
+
+    keyword_reactions_doc = (
+        db["bot_settings"].find_one({"_id": "global_keyword_reactions"}) or {}
+    )
+    for entry in keyword_reactions_doc.get("reactions", []):
+        if insert_keyword_reaction(
+            target,
+            entry.get("keywords", []),
+            entry.get("reaction", ""),
+        ):
+            counts["global_keyword_reactions"] += 1
+
+    return counts
+
+
+def group_query(source_chat_ids: list[int]) -> dict[str, Any]:
+    if not source_chat_ids:
+        return {}
+    return {"_id": {"$in": source_chat_ids}}
+
+
+def migrate_group_data(
+    db,
+    target: sqlite3.Connection,
+    source_chat_ids: list[int],
+) -> dict[str, int]:
+    counts = {
+        "group_responses": 0,
+        "group_keyword_responses": 0,
+        "group_reactions": 0,
+        "group_keyword_reactions": 0,
+        "groups": 0,
+    }
+    for document in db["groups"].find(group_query(source_chat_ids)):
+        counts["groups"] += 1
+        for response in document.get("responses", []):
+            insert_response(target, response_to_row(response, mode="random"))
+            counts["group_responses"] += 1
+
+        for entry in document.get("keyword_responses", []):
+            insert_response(
+                target,
+                response_to_row(
+                    entry.get("response"),
+                    mode="keyword",
+                    keywords=normalize_keywords(entry.get("keywords", [])),
+                ),
+            )
+            counts["group_keyword_responses"] += 1
+
+        overrides = set(document.get("config_overrides", []))
+        if "reactions" in overrides:
+            for reaction in document.get("reactions", []):
+                if insert_reaction(target, reaction):
+                    counts["group_reactions"] += 1
+
+        for entry in document.get("keyword_reactions", []):
+            if insert_keyword_reaction(
+                target,
+                entry.get("keywords", []),
+                entry.get("reaction", ""),
+            ):
+                counts["group_keyword_reactions"] += 1
+
+    return counts
+
+
+def list_source(db) -> None:
+    print("Global data:")
+    global_responses = db["bot_settings"].find_one({"_id": "global_responses"}) or {}
+    print(
+        "  responses:",
+        len(global_responses.get("responses", [])),
+    )
+    print(
+        "  keyword responses:",
+        len(
+            (db["bot_settings"].find_one({"_id": "global_keyword_responses"}) or {}).get(
+                "responses",
+                [],
+            )
+        ),
+    )
+    print(
+        "  keyword reactions:",
+        len(
+            (db["bot_settings"].find_one({"_id": "global_keyword_reactions"}) or {}).get(
+                "reactions",
+                [],
+            )
+        ),
+    )
+    print("\nGroups:")
+    cursor = db["groups"].find(
+        {},
+        {
+            "_id": 1,
+            "responses": 1,
+            "keyword_responses": 1,
+            "keyword_reactions": 1,
+            "reactions": 1,
+            "config_overrides": 1,
+        },
+    )
+    found = False
+    for document in cursor:
+        found = True
+        overrides = set(document.get("config_overrides", []))
+        reactions = len(document.get("reactions", [])) if "reactions" in overrides else 0
+        print(
+            f"  {document['_id']}: "
+            f"{len(document.get('responses', []))} responses, "
+            f"{len(document.get('keyword_responses', []))} keyword responses, "
+            f"{reactions} local reactions, "
+            f"{len(document.get('keyword_reactions', []))} keyword reactions"
+        )
+    if not found:
+        print("  none")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Migrate old autoreply SQLite data into global chat_id 0.",
+        description="Migrate old MongoDB autoreply data into SQLite chat_id 0.",
     )
-    parser.add_argument("source_db", type=Path, help="Old autoreply SQLite database.")
+    parser.add_argument("--mongo-uri", required=True, help="Old MongoDB URI.")
+    parser.add_argument("--mongo-db", required=True, help="Old MongoDB database name.")
     parser.add_argument(
         "target_db",
         type=Path,
@@ -279,17 +460,27 @@ def parse_args() -> argparse.Namespace:
         type=int,
         action="append",
         default=[],
-        help="Only migrate this old chat id. Can be repeated. Defaults to all.",
+        help="Only migrate this old group id. Can be repeated. Defaults to all groups.",
+    )
+    parser.add_argument(
+        "--global-only",
+        action="store_true",
+        help="Only migrate old global responses/settings, not group-local data.",
+    )
+    parser.add_argument(
+        "--no-global",
+        action="store_true",
+        help="Only migrate group-local data, not old global responses/settings.",
     )
     parser.add_argument(
         "--clear-target",
         action="store_true",
-        help="Delete current global autoreply data before migrating.",
+        help="Delete current global autoreply SQLite data before migrating.",
     )
     parser.add_argument(
-        "--list-source-chats",
+        "--list-source",
         action="store_true",
-        help="List chat ids found in the source database and exit.",
+        help="List source MongoDB counts and exit.",
     )
     parser.add_argument(
         "--apply",
@@ -301,35 +492,33 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if not args.source_db.exists():
-        print(f"Source database does not exist: {args.source_db}", file=sys.stderr)
+    if args.global_only and args.no_global:
+        print("--global-only and --no-global cannot be used together.", file=sys.stderr)
         return 2
-    if not args.target_db.exists() and not args.list_source_chats:
+    if not args.target_db.exists() and not args.list_source:
         print(f"Target database does not exist: {args.target_db}", file=sys.stderr)
         return 2
 
-    source = connect(args.source_db)
+    client = connect_mongo(args.mongo_uri)
     try:
-        if args.list_source_chats:
-            list_source_chats(source)
+        db = client[args.mongo_db]
+        if args.list_source:
+            list_source(db)
             return 0
 
-        target = connect(args.target_db)
+        target = connect_sqlite(args.target_db)
         try:
             ensure_target_schema(target)
             if args.clear_target:
                 clear_target(target)
 
-            counts = {
-                "settings": migrate_settings(source, target, args.source_chat_id),
-                "responses": migrate_responses(source, target, args.source_chat_id),
-                "reactions": migrate_reactions(source, target, args.source_chat_id),
-                "keyword_reactions": migrate_keyword_reactions(
-                    source,
-                    target,
-                    args.source_chat_id,
-                ),
-            }
+            counts: dict[str, int] = {}
+            if not args.no_global:
+                counts["settings"] = migrate_settings(db, target)
+                counts.update(migrate_global_data(db, target))
+            if not args.global_only:
+                counts.update(migrate_group_data(db, target, args.source_chat_id))
+
             if args.apply:
                 target.commit()
                 action = "Migrated"
@@ -337,8 +526,9 @@ def main() -> int:
                 target.rollback()
                 action = "Dry run"
 
-            chat_filter = ", ".join(map(str, args.source_chat_id)) or "all source chats"
-            print(f"{action} from {chat_filter} into global chat_id 0:")
+            group_filter = ", ".join(map(str, args.source_chat_id)) or "all groups"
+            print(f"{action} MongoDB data into SQLite global chat_id 0.")
+            print(f"Group filter: {group_filter}")
             for key, count in counts.items():
                 print(f"  {key}: {count}")
             if not args.apply:
@@ -347,7 +537,7 @@ def main() -> int:
         finally:
             target.close()
     finally:
-        source.close()
+        client.close()
 
 
 if __name__ == "__main__":
