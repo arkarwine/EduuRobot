@@ -28,33 +28,42 @@ from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send
 async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
     msg = m.message if isinstance(m, CallbackQuery) else m
 
-    buttons = [
-        [
-            styled_button(
-                s("start_ai_btn"),
-                callback_data="view_category ai",
-                style="success",
-            ),
-        ],
-        [
-            styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
-            styled_button(s("start_language_btn"), callback_data="chlang", style="primary"),
-        ],
-        [
-            styled_button(
-                s("start_add_to_chat_btn"),
-                url=f"https://t.me/{c.me.username}?startgroup=new",
-                style="success",
-            ),
-        ],
-        [
-            styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
-            styled_button(s("start_owner_btn"), url=OWNER_URL, style="primary"),
-        ],
+    buttons = []
+
+    if "ai" in commands.commands:
+        buttons.append(
+            [
+                styled_button(
+                    s("start_ai_btn"),
+                    callback_data="view_category ai",
+                    style="success",
+                ),
+            ]
+        )
+
+    add_to_chat_row = [
+        styled_button(
+            s("start_add_to_chat_btn"),
+            url=f"https://t.me/{c.me.username}?startgroup=new",
+            style="success",
+        ),
     ]
+    buttons.extend(
+        [
+            [
+                styled_button(s("start_commands_btn"), callback_data="commands", style="primary"),
+                styled_button(s("start_language_btn"), callback_data="chlang", style="primary"),
+            ],
+            add_to_chat_row,
+            [
+                styled_button(s("start_updates_btn"), url=UPDATES_CHANNEL, style="primary"),
+                styled_button(s("start_owner_btn"), url=OWNER_URL, style="primary"),
+            ],
+        ]
+    )
 
     if support_group := getattr(config, "SUPPORT_GROUP", ""):
-        buttons[2].append(
+        add_to_chat_row.append(
             styled_button(s("start_support_group_btn"), url=support_group, style="primary")
         )
 

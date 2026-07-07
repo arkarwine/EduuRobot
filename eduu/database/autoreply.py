@@ -8,6 +8,7 @@ from typing import Any
 from eduu.database.core import database
 
 DEFAULT_REACTIONS = ["👍", "❤️", "🔥", "👏", "😁"]
+GLOBAL_AUTOREPLY_ID = 0
 DEFAULT_SETTINGS = {
     "enabled": True,
     "mode": "random",
@@ -19,6 +20,10 @@ DEFAULT_SETTINGS = {
 }
 
 conn = database.get_conn()
+
+
+def _global_chat_id(_chat_id: int | None = None) -> int:
+    return GLOBAL_AUTOREPLY_ID
 
 
 def _settings_from_row(row) -> dict[str, Any]:
@@ -35,7 +40,8 @@ def _settings_from_row(row) -> dict[str, Any]:
     }
 
 
-async def ensure_settings(chat_id: int) -> None:
+async def ensure_settings(chat_id: int | None = None) -> None:
+    chat_id = _global_chat_id(chat_id)
     await conn.execute(
         "INSERT OR IGNORE INTO autoreply_settings(chat_id) VALUES(?)",
         (chat_id,),
@@ -43,7 +49,8 @@ async def ensure_settings(chat_id: int) -> None:
     await conn.commit()
 
 
-async def get_settings(chat_id: int) -> dict[str, Any]:
+async def get_settings(chat_id: int | None = None) -> dict[str, Any]:
+    chat_id = _global_chat_id(chat_id)
     await ensure_settings(chat_id)
     cursor = await conn.execute(
         "SELECT * FROM autoreply_settings WHERE chat_id = ?",
@@ -55,6 +62,7 @@ async def get_settings(chat_id: int) -> dict[str, Any]:
 
 
 async def set_setting(chat_id: int, key: str, value: Any) -> None:
+    chat_id = _global_chat_id(chat_id)
     await ensure_settings(chat_id)
     await conn.execute(
         f"UPDATE autoreply_settings SET {key} = ? WHERE chat_id = ?",
@@ -74,6 +82,7 @@ async def add_response(
     source_message_id: int | None = None,
     label: str | None = None,
 ) -> None:
+    chat_id = _global_chat_id(chat_id)
     await ensure_settings(chat_id)
     await conn.execute(
         """
@@ -98,6 +107,7 @@ async def add_response(
 
 
 async def get_response(chat_id: int, response_id: int) -> dict[str, Any] | None:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "SELECT * FROM autoreply_responses WHERE chat_id = ? AND id = ?",
         (chat_id, response_id),
@@ -120,6 +130,7 @@ async def get_response(chat_id: int, response_id: int) -> dict[str, Any] | None:
 
 
 async def get_responses(chat_id: int, mode: str | None = None) -> list[dict[str, Any]]:
+    chat_id = _global_chat_id(chat_id)
     query = "SELECT * FROM autoreply_responses WHERE chat_id = ?"
     params: list[Any] = [chat_id]
     if mode:
@@ -146,6 +157,7 @@ async def get_responses(chat_id: int, mode: str | None = None) -> list[dict[str,
 
 
 async def delete_response(chat_id: int, response_id: int) -> bool:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "DELETE FROM autoreply_responses WHERE chat_id = ? AND id = ?",
         (chat_id, response_id),
@@ -157,6 +169,7 @@ async def delete_response(chat_id: int, response_id: int) -> bool:
 
 
 async def clear_responses(chat_id: int, mode: str | None = None) -> int:
+    chat_id = _global_chat_id(chat_id)
     if mode:
         cursor = await conn.execute(
             "DELETE FROM autoreply_responses WHERE chat_id = ? AND mode = ?",
@@ -174,6 +187,7 @@ async def clear_responses(chat_id: int, mode: str | None = None) -> int:
 
 
 async def get_reactions(chat_id: int) -> list[str]:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "SELECT reaction FROM autoreply_reactions WHERE chat_id = ? ORDER BY reaction",
         (chat_id,),
@@ -184,6 +198,7 @@ async def get_reactions(chat_id: int) -> list[str]:
 
 
 async def add_reaction(chat_id: int, reaction: str) -> bool:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "INSERT OR IGNORE INTO autoreply_reactions(chat_id, reaction) VALUES (?, ?)",
         (chat_id, reaction),
@@ -195,6 +210,7 @@ async def add_reaction(chat_id: int, reaction: str) -> bool:
 
 
 async def remove_reaction(chat_id: int, reaction: str) -> bool:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "DELETE FROM autoreply_reactions WHERE chat_id = ? AND reaction = ?",
         (chat_id, reaction),
@@ -206,6 +222,7 @@ async def remove_reaction(chat_id: int, reaction: str) -> bool:
 
 
 async def add_keyword_reaction(chat_id: int, keywords: list[str], reaction: str) -> None:
+    chat_id = _global_chat_id(chat_id)
     await conn.execute(
         """
         INSERT INTO autoreply_keyword_reactions(chat_id, keywords, reaction)
@@ -217,6 +234,7 @@ async def add_keyword_reaction(chat_id: int, keywords: list[str], reaction: str)
 
 
 async def get_keyword_reactions(chat_id: int) -> list[dict[str, Any]]:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "SELECT * FROM autoreply_keyword_reactions WHERE chat_id = ? ORDER BY id",
         (chat_id,),
@@ -234,6 +252,7 @@ async def get_keyword_reactions(chat_id: int) -> list[dict[str, Any]]:
 
 
 async def clear_keyword_reactions(chat_id: int) -> int:
+    chat_id = _global_chat_id(chat_id)
     cursor = await conn.execute(
         "DELETE FROM autoreply_keyword_reactions WHERE chat_id = ?",
         (chat_id,),

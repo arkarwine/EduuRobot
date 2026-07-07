@@ -27,6 +27,8 @@ class Database:
             chat_id INTEGER PRIMARY KEY,
             welcome TEXT,
             welcome_enabled INTEGER,
+            goodbye TEXT,
+            goodbye_enabled INTEGER,
             rules TEXT,
             warns_limit INTEGER,
             chat_lang TEXT,
@@ -34,7 +36,8 @@ class Database:
             antichannelpin INTEGER,
             delservicemsgs INTEGER,
             antispam INTEGER DEFAULT 1,
-            warn_action TEXT
+            warn_action TEXT,
+            tiktok_autodl INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS users(
