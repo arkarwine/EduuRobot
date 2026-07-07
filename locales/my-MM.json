@@ -393,5 +393,5 @@
   "autoreply_cleared": "Auto reply <b>{count}</b> ခုကို ဖျက်လိုက်ပါပြီ။",
   "autoreply_reaction_status": "<b>Global auto-reply reaction များ</b>\nState: {state}\nဖြစ်နိုင်ခြေ: {chance}%\nReaction: {reactions}",
   "autoreply_reaction_usage": "<b>အသုံးပြုနည်း:</b> <code>/reaction on|off</code>, <code>/reaction chance 25</code>, <code>/reaction add 👍</code>, သို့မဟုတ် <code>/reaction remove 👍</code>။",
-  "autoreply_reaction_updated": "Reaction ဆက်တင်များကို update လုပ်ပြီးပါပြီ။",
+  "autoreply_reaction_updated": "Reaction ဆက်တင်များကို update လုပ်ပြီးပါပြီ။"
 }
