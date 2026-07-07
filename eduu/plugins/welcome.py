@@ -150,18 +150,49 @@ async def _preview_default_template(m: Message, text: str) -> Message:
     return await m.reply_text(preview)
 
 
-async def _profile_photo_file_id(c: Client, user) -> str | None:
+def _profile_photo_file_id(user) -> str | None:
     photo = getattr(user, "photo", None)
-    for attr in ("big_file_id", "small_file_id", "file_id"):
+    for attr in ("big_file_id", "small_file_id"):
         file_id = getattr(photo, attr, None)
         if file_id:
             return file_id
+    return None
+
+
+async def _download_profile_photo(c: Client, file_id: str):
+    try:
+        return await c.download_media(file_id, in_memory=True)
+    except Exception as e:
+        logger.debug("Could not download profile photo: %s", e)
+        return None
+
+
+async def _profile_photo_media(c: Client, user):
+    file_id = _profile_photo_file_id(user)
+    if file_id:
+        media = await _download_profile_photo(c, file_id)
+        if media:
+            return media
+
+    try:
+        fresh_user = await c.get_users(user.id)
+    except Exception as e:
+        logger.debug("Could not refresh user %s for profile photo: %s", user.id, e)
+    else:
+        file_id = _profile_photo_file_id(fresh_user)
+        if file_id:
+            media = await _download_profile_photo(c, file_id)
+            if media:
+                return media
 
     try:
         async for photo in c.get_chat_photos(user.id, limit=1):
-            return photo.file_id
-    except Exception:
-        return None
+            media = await _download_profile_photo(c, photo.file_id)
+            if media:
+                return media
+    except Exception as e:
+        logger.debug("Could not fetch chat photos for user %s: %s", user.id, e)
+
     return None
 
 
@@ -275,18 +306,23 @@ async def _send_template(
     sent = None
     try:
         profile_photo = (
-            await _profile_photo_file_id(c, members[0])
+            await _profile_photo_media(c, members[0])
             if use_profile_photo and len(members) == 1
             else None
         )
         if profile_photo:
-            sent = await c.send_photo(
-                chat_id=chat_id,
-                photo=profile_photo,
-                caption=text,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
-            )
+            try:
+                sent = await c.send_photo(
+                    chat_id=chat_id,
+                    photo=profile_photo,
+                    caption=text,
+                    reply_markup=reply_markup,
+                    parse_mode=ParseMode.HTML,
+                )
+            finally:
+                close = getattr(profile_photo, "close", None)
+                if close:
+                    close()
         elif media_file_id and media_type == "photo":
             sent = await c.send_photo(
                 chat_id=chat_id,
