@@ -20,7 +20,6 @@ from hydrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
-    ReplyParameters,
 )
 from eduu.utils.buttons import ButtonStyle
 
