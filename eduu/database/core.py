@@ -46,7 +46,8 @@ class Database:
         );
 
         CREATE TABLE IF NOT EXISTS channels(
-            chat_id INTEGER PRIMARY KEY
+            chat_id INTEGER PRIMARY KEY,
+            chat_lang TEXT
         );
 
         CREATE TABLE IF NOT EXISTS was_restarted_at(
@@ -193,6 +194,13 @@ class Database:
         await cursor.close()
         if "updated_at" not in warn_columns:
             await conn.execute("ALTER TABLE user_warns ADD COLUMN updated_at TIMESTAMP")
+
+        cursor = await conn.execute("PRAGMA table_info(channels)")
+        channel_columns = {row[1] for row in await cursor.fetchall()}
+        await cursor.close()
+        if "chat_lang" not in channel_columns:
+            await conn.execute("ALTER TABLE channels ADD COLUMN chat_lang TEXT")
+
         await conn.execute(
             "UPDATE user_warns SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"
         )

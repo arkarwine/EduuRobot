@@ -9,23 +9,38 @@ from eduu.utils.consts import GROUP_TYPES
 
 from .core import database
 
-conn = database.get_conn()
-
 
 async def set_db_lang(chat_id: int, chat_type: ChatType, lang_code: str) -> None:
+    conn = database.get_conn()
+
     if chat_type in {ChatType.PRIVATE, ChatType.BOT}:
         await conn.execute(
-            "UPDATE users SET chat_lang = ? WHERE user_id = ?", (lang_code, chat_id)
+            """
+            INSERT INTO users(user_id, chat_lang)
+            VALUES(?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET chat_lang = excluded.chat_lang
+            """,
+            (chat_id, lang_code),
         )
         await conn.commit()
     elif chat_type in GROUP_TYPES:  # groups and supergroups share the same table
         await conn.execute(
-            "UPDATE groups SET chat_lang = ? WHERE chat_id = ?", (lang_code, chat_id)
+            """
+            INSERT INTO groups(chat_id, chat_lang)
+            VALUES(?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET chat_lang = excluded.chat_lang
+            """,
+            (chat_id, lang_code),
         )
         await conn.commit()
     elif chat_type == ChatType.CHANNEL:
         await conn.execute(
-            "UPDATE channels SET chat_lang = ? WHERE chat_id = ?", (lang_code, chat_id)
+            """
+            INSERT INTO channels(chat_id, chat_lang)
+            VALUES(?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET chat_lang = excluded.chat_lang
+            """,
+            (chat_id, lang_code),
         )
         await conn.commit()
     else:
@@ -33,6 +48,8 @@ async def set_db_lang(chat_id: int, chat_type: ChatType, lang_code: str) -> None
 
 
 async def get_db_lang(chat_id: int, chat_type: ChatType) -> str | None:
+    conn = database.get_conn()
+
     if chat_type == ChatType.PRIVATE:
         cursor = await conn.execute("SELECT chat_lang FROM users WHERE user_id = ?", (chat_id,))
         ul = await cursor.fetchone()

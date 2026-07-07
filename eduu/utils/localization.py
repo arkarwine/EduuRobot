@@ -26,6 +26,7 @@ enabled_locales: list[str] = [
 ]
 
 default_language: str = "my-MM"
+locale_dir = Path(__file__).resolve().parents[2] / "locales"
 
 
 def cache_locales(locales: list[str]) -> dict[str, dict[str, str]]:
@@ -33,7 +34,7 @@ def cache_locales(locales: list[str]) -> dict[str, dict[str, str]]:
     locales_dict = {}
 
     for locale in locales:
-        file = Path("locales", f"{locale}.json")
+        file = locale_dir / f"{locale}.json"
 
         if not file.exists():
             logging.warning(
@@ -66,8 +67,10 @@ def get_locale_string(
 ) -> str:
     if "@" in language and language.split("@", 1)[0] in langdict:
         # if an @ (tone modifier) is present, try to get string from parent language if nullish
-        string = langdict[language].get(key) or langdict[language.split("@", 1)[0]].get(key)
+        language_strings = langdict.get(language, {})
+        string = language_strings.get(key) or langdict[language.split("@", 1)[0]].get(key)
     else:
+        language = language if language in langdict else default_language
         string = langdict[language].get(key)
 
     # return and fallback if nullish
