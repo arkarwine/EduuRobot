@@ -125,6 +125,7 @@ COMMAND_USAGES = {
     "spamfilter": "/spamfilter <word or phrase>",
     "spamfilters": "/spamfilters",
     "start": "/start",
+    "stats": "/stats",
     "stop": "/stop",
     "tban": "/tban <duration> as a reply",
     "tmute": "/tmute <duration> as a reply",
@@ -351,9 +352,17 @@ class BotCommands:
 
         return res
 
-    def get_bot_commands(self, s: Strings) -> list[BotCommand]:
+    def get_bot_commands(
+        self,
+        s: Strings,
+        categories: list[str] | tuple[str, ...] | set[str] | None = None,
+        limit: int = 95,
+    ) -> list[BotCommand]:
         bot_commands = []
-        for category in self.commands:
+        selected_categories = categories or self.commands
+        for category in selected_categories:
+            if category not in self.commands:
+                continue
             bot_commands += self.commands[category]
 
         bot_commands.sort(key=operator.itemgetter("command"))
@@ -368,7 +377,7 @@ class BotCommands:
             description = re.sub(r"<[^>]+>", "", s(cmd["description_key"]))
             description = " ".join(description.split())[:256] or command
             result.append(BotCommand(command=command, description=description))
-            if len(result) >= 100:
+            if len(result) >= min(limit, 100):
                 break
         return result
 

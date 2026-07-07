@@ -19,6 +19,42 @@ from . import __commit__, __version_number__
 
 logger = logging.getLogger(__name__)
 
+NATIVE_COMMAND_LIMIT = 95
+DEFAULT_COMMAND_CATEGORIES = ("general", "tools", "ai")
+GROUP_COMMAND_CATEGORIES = (
+    "general",
+    "tools",
+    "ai",
+    "mentions",
+    "admin_antispam",
+    "admin_autoreply",
+    "admin_bans",
+    "admin_filters",
+    "admin_misc",
+    "admin_mutes",
+    "admin_notes",
+    "admin_pins",
+    "admin_rules",
+    "admin_warns",
+    "admin_welcome",
+    "remote_moderation",
+)
+ADMIN_COMMAND_CATEGORIES = (
+    "admin_antispam",
+    "admin_autoreply",
+    "admin_bans",
+    "admin_filters",
+    "admin_misc",
+    "admin_mutes",
+    "admin_notes",
+    "admin_pins",
+    "admin_rules",
+    "admin_warns",
+    "admin_welcome",
+    "mentions",
+    "remote_moderation",
+)
+
 
 def _load_command_modules() -> None:
     """Ensure plugin module-level commands.add_command calls have run."""
@@ -37,18 +73,47 @@ def _load_command_modules() -> None:
             logger.warning("Skipping command registration import for %s: %s", module_name, e)
 
 
-async def _set_native_command_menu(bot_commands) -> None:
-    command_payload = [
-        {"command": command.command, "description": command.description}
-        for command in bot_commands
-    ]
+async def _set_native_command_menu(scope_commands) -> None:
+    registered_counts = {}
+    if not scope_commands:
+        logger.warning("No Telegram bot menu commands were collected; keeping existing menu.")
+        return
+
+    default_commands = scope_commands.get("default", [])
+    if not default_commands:
+        default_commands = next(
+            (commands for commands in scope_commands.values() if commands),
+            [],
+        )
+
     scopes = [
-        None,
-        {"type": "all_private_chats"},
-        {"type": "all_group_chats"},
-        {"type": "all_chat_administrators"},
+        ("default", None, default_commands),
+        (
+            "all_private_chats",
+            {"type": "all_private_chats"},
+            scope_commands.get("private", default_commands),
+        ),
+        (
+            "all_group_chats",
+            {"type": "all_group_chats"},
+            scope_commands.get("group", default_commands),
+        ),
+        (
+            "all_chat_administrators",
+            {"type": "all_chat_administrators"},
+            scope_commands.get("admin", scope_commands.get("group", default_commands)),
+        ),
     ]
-    for scope in scopes:
+
+    for scope_name, scope, bot_commands in scopes:
+        bot_commands = bot_commands[:NATIVE_COMMAND_LIMIT]
+        if not bot_commands:
+            continue
+
+        command_payload = [
+            {"command": command.command, "description": command.description}
+            for command in bot_commands
+        ]
         payload = {"commands": command_payload}
         if scope is not None:
             payload["scope"] = scope
@@ -58,10 +123,15 @@ async def _set_native_command_menu(bot_commands) -> None:
         )
         data = response.json()
         if not data.get("ok"):
-            scope_name = scope["type"] if scope else "default"
             raise RuntimeError(
                 f"{scope_name}: {data.get('description', 'setMyCommands failed')}"
             )
+        registered_counts[scope_name] = len(command_payload)
+
+    logger.info(
+        "Registered Telegram bot menu commands: %s.",
+        ", ".join(f"{scope}={count}" for scope, count in registered_counts.items()),
+    )
 
 
 class Eduu(Client):
@@ -97,14 +167,32 @@ class Eduu(Client):
             from eduu.utils.localization import default_language, get_locale_string  # noqa: PLC0415
 
             _load_command_modules()
-            bot_commands = commands.get_bot_commands(
-                lambda key: get_locale_string(default_language, key)
-            )
-            if bot_commands:
-                await _set_native_command_menu(bot_commands)
-                logger.info("Registered %s Telegram bot menu commands.", len(bot_commands))
-            else:
-                logger.warning("No Telegram bot menu commands were collected; keeping existing menu.")
+
+            def localize(key: str) -> str:
+                return get_locale_string(default_language, key)
+
+            await _set_native_command_menu({
+                "default": commands.get_bot_commands(
+                    localize,
+                    categories=DEFAULT_COMMAND_CATEGORIES,
+                    limit=NATIVE_COMMAND_LIMIT,
+                ),
+                "private": commands.get_bot_commands(
+                    localize,
+                    categories=DEFAULT_COMMAND_CATEGORIES,
+                    limit=NATIVE_COMMAND_LIMIT,
+                ),
+                "group": commands.get_bot_commands(
+                    localize,
+                    categories=GROUP_COMMAND_CATEGORIES,
+                    limit=NATIVE_COMMAND_LIMIT,
+                ),
+                "admin": commands.get_bot_commands(
+                    localize,
+                    categories=ADMIN_COMMAND_CATEGORIES,
+                    limit=NATIVE_COMMAND_LIMIT,
+                ),
+            })
         except Exception:
             logger.exception("Unable to register Telegram bot commands.")
 

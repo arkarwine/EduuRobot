@@ -462,6 +462,7 @@ def migrate_chat_logs(
     source_chat_ids: list[int],
     *,
     include_users: bool,
+    include_all_users: bool,
 ) -> dict[str, int]:
     counts = {
         "broadcast_group_targets": 0,
@@ -484,7 +485,8 @@ def migrate_chat_logs(
             counts["broadcast_group_targets"] += 1
 
     if include_users and "users" in db.list_collection_names():
-        for document in db["users"].find({}):
+        user_query = {} if include_all_users else {"private_interacted": True}
+        for document in db["users"].find(user_query):
             user_id = document_id(document)
             if user_id is None:
                 counts["skipped_user_targets"] += 1
@@ -648,6 +650,14 @@ def parse_args() -> argparse.Namespace:
         help="Do not migrate old users as private broadcast targets.",
     )
     parser.add_argument(
+        "--include-all-users",
+        action="store_true",
+        help=(
+            "Migrate every old users document into private broadcast targets. "
+            "By default, only users with private_interacted=true are migrated."
+        ),
+    )
+    parser.add_argument(
         "--clear-target",
         action="store_true",
         help="Delete current global autoreply SQLite data before migrating.",
@@ -716,6 +726,7 @@ def main() -> int:
                         target,
                         args.source_chat_id,
                         include_users=not args.skip_users,
+                        include_all_users=args.include_all_users,
                     )
                 )
 

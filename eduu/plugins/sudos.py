@@ -209,7 +209,7 @@ async def leave_chat(c: Client, m: Message):
             await c.leave_chat(int(chat_id))
 
 
-@Client.on_message(filters.command(["bot_stats", "stats"], prefix) & sudofilter)
+@Client.on_message(filters.command("bot_stats", prefix) & sudofilter)
 async def getbotstats(c: Client, m: Message):
     users_count = await conn.execute("select count() from users")
     users_count = await users_count.fetchone()
