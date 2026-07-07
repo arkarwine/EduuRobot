@@ -37,7 +37,7 @@ from eduu.utils import commands, sudofilter
 from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import stop_here
 from eduu.utils.localization import Strings, use_chat_lang
-from eduu.utils.styled_messages import edit_styled_text
+from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 COOLDOWN_OPTIONS = [0, 5, 10, 15, 30, 60]
 RATE_LIMIT_OPTIONS = [0, 5, 10, 20, 30]
@@ -106,76 +106,6 @@ def _interaction_allowed(chat_id: int, cooldown: int, per_minute: int) -> bool:
     return True
 
 
-def _settings_text(settings: dict, s: Strings) -> str:
-    enabled = s("general_enabled") if settings["enabled"] else s("general_disabled")
-    reactions = (
-        s("general_enabled") if settings["reactions_enabled"] else s("general_disabled")
-    )
-    rate = settings["rate_limit_per_minute"] or s("autoreply_unlimited")
-    return s("autoreply_status").format(
-        enabled=enabled,
-        mode=settings["mode"],
-        reply_chance=settings["reply_chance"],
-        cooldown=settings["cooldown_seconds"],
-        rate=rate,
-        reactions=reactions,
-        reaction_chance=settings["reaction_chance"],
-    )
-
-
-def _settings_keyboard(settings: dict, s: Strings) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                styled_button(
-                    s(
-                        "autoreply_disable_btn"
-                        if settings["enabled"]
-                        else "autoreply_enable_btn"
-                    ),
-                    callback_data="ar:toggle",
-                    style="danger" if settings["enabled"] else "success",
-                ),
-                styled_button(
-                    s("autoreply_mode_btn").format(mode=settings["mode"]),
-                    callback_data="ar:mode",
-                    style="primary",
-                ),
-            ],
-            [
-                styled_button(
-                    s("autoreply_chance_btn").format(chance=settings["reply_chance"]),
-                    callback_data="ar:chance",
-                    style="primary",
-                ),
-                styled_button(
-                    s("autoreply_cooldown_btn").format(seconds=settings["cooldown_seconds"]),
-                    callback_data="ar:cooldown",
-                    style="primary",
-                ),
-            ],
-            [
-                styled_button(
-                    s("autoreply_rate_btn").format(
-                        rate=settings["rate_limit_per_minute"] or s("autoreply_unlimited")
-                    ),
-                    callback_data="ar:rate",
-                    style="primary",
-                ),
-                styled_button(
-                    s("autoreply_reactions_btn").format(
-                        state=s("general_enabled")
-                        if settings["reactions_enabled"]
-                        else s("general_disabled")
-                    ),
-                    callback_data="ar:reactions",
-                    style="primary",
-                ),
-            ],
-        ]
-    )
-
-
 async def _delete_later(*messages: Message) -> None:
     await asyncio.sleep(MANAGER_DELETE_DELAY)
     for message in messages:
@@ -187,6 +117,7 @@ async def _delete_later(*messages: Message) -> None:
 
 def _manager_keyboard(chat_id: int, settings: dict, s: Strings) -> InlineKeyboardMarkup:
     keyword_mode = settings["mode"] == "keyword"
+    enabled_text = "⏸ Enabled" if settings["enabled"] else "▶️ Disabled"
     rows = [
         [
             styled_button(
@@ -221,7 +152,7 @@ def _manager_keyboard(chat_id: int, settings: dict, s: Strings) -> InlineKeyboar
         ],
         [
             styled_button(
-                "⏸ Enabled" if settings["enabled"] else "▶️ Disabled",
+                enabled_text,
                 callback_data=f"mgr:toggle:{chat_id}",
                 style="danger" if settings["enabled"] else "success",
             )
@@ -312,21 +243,41 @@ async def _manager_content(s: Strings) -> tuple[str, InlineKeyboardMarkup]:
     chat_id = GLOBAL_AUTOREPLY_ID
     settings = await get_settings(chat_id)
     responses = await get_responses(chat_id)
+    random_count = len([response for response in responses if response["mode"] == "random"])
+    keyword_count = len([response for response in responses if response["mode"] == "keyword"])
+    keyword_reaction_count = len(await get_keyword_reactions(chat_id))
     rate = settings["rate_limit_per_minute"] or "∞"
-    text = (
-        "⚙️ Global Auto Replies\n"
-        "Applies to every group the bot serves.\n\n"
-        f"{'🟢 Active' if settings['enabled'] else '🔴 Paused'}  •  "
-        f"📚 {len(responses)} replies\n"
-        f"💬 {settings['reply_chance']}%  •  "
-        f"🎲 {settings['reaction_chance']}%  •  "
-        f"⏱ {settings['cooldown_seconds']}s  •  🚦 {rate}/min"
-    )
+    active = "🟢 Active" if settings["enabled"] else "🔴 Paused"
+    if settings["mode"] == "keyword":
+        text = (
+            "⚙️ Global Auto Replies\n"
+            "Mode: 🎯 Keyword\n"
+            "Applies to every group the bot serves.\n\n"
+            f"{active}  •  📚 {keyword_count} keyword replies\n"
+            f"🎭 {keyword_reaction_count} keyword reactions\n\n"
+            "Replies and reactions trigger only when a configured keyword matches."
+        )
+    else:
+        text = (
+            "⚙️ Global Auto Replies\n"
+            "Mode: 🎲 Random\n"
+            "Applies to every group the bot serves.\n\n"
+            f"{active}  •  📚 {random_count} random replies\n"
+            f"💬 Reply: {settings['reply_chance']}%  •  "
+            f"🎲 React: {settings['reaction_chance']}%\n"
+            f"⏱ Cooldown: {settings['cooldown_seconds']}s  •  🚦 Rate: {rate}/min"
+        )
     return text, _manager_keyboard(chat_id, settings, s)
 
 
-async def _reply_list_content(chat_id: int, page: int) -> tuple[str, InlineKeyboardMarkup]:
-    responses = await get_responses(chat_id)
+async def _reply_list_content(
+    chat_id: int,
+    page: int,
+    mode: str | None = None,
+) -> tuple[str, InlineKeyboardMarkup]:
+    if mode is None:
+        mode = (await get_settings(chat_id))["mode"]
+    responses = await get_responses(chat_id, mode)
     page_count = max(1, (len(responses) + REPLIES_PER_PAGE - 1) // REPLIES_PER_PAGE)
     page = max(0, min(page, page_count - 1))
     page_items = responses[page * REPLIES_PER_PAGE : (page + 1) * REPLIES_PER_PAGE]
@@ -352,10 +303,9 @@ async def _reply_list_content(chat_id: int, page: int) -> tuple[str, InlineKeybo
                 ),
             ]
         )
-    text = (
-        f"📚 Replies • {page + 1}/{page_count}\n\n" + "\n".join(lines)
-        if lines
-        else "📭 No replies yet."
+    title = "🎯 Keyword replies" if mode == "keyword" else "🎲 Random replies"
+    text = f"{title} • {page + 1}/{page_count}\n\n" + "\n".join(lines) if lines else (
+        f"📭 No {mode} replies yet."
     )
     navigation = []
     if page > 0:
@@ -382,26 +332,40 @@ async def _reply_list_content(chat_id: int, page: int) -> tuple[str, InlineKeybo
     return text[:4096], InlineKeyboardMarkup(buttons)
 
 
-async def _reaction_list_content(chat_id: int) -> tuple[str, InlineKeyboardMarkup]:
-    reactions = await get_reactions(chat_id)
-    keyword_reactions = await get_keyword_reactions(chat_id)
-    rows = [
-        [
-            styled_button(
-                f"🗑 {reaction}",
-                callback_data=f"mgr:delete-reaction-{reaction}:{chat_id}",
-                style="danger",
-            )
-        ]
-        for reaction in reactions
-    ]
-    lines = list(reactions)
-    for entry in keyword_reactions:
-        lines.append(f"{', '.join(entry['keywords'])} -> {entry['reaction']}")
+async def _reaction_list_content(
+    chat_id: int,
+    mode: str | None = None,
+) -> tuple[str, InlineKeyboardMarkup]:
+    if mode is None:
+        mode = (await get_settings(chat_id))["mode"]
+    rows = []
+    lines = []
+    if mode == "keyword":
+        title = "🎭 Keyword reactions"
+        keyword_reactions = await get_keyword_reactions(chat_id)
+        for entry in keyword_reactions:
+            lines.append(f"{', '.join(entry['keywords'])} -> {entry['reaction']}")
+    else:
+        title = "🎭 Random reactions"
+        reactions = await get_reactions(chat_id)
+        lines = list(reactions)
+        rows.extend(
+            [
+                [
+                    styled_button(
+                        f"🗑 {reaction}",
+                        callback_data=f"mgr:delete-reaction-{reaction}:{chat_id}",
+                        style="danger",
+                    )
+                ]
+                for reaction in reactions
+            ]
+        )
     rows.append(
         [styled_button("⬅️ Manager", callback_data=f"mgr:open:{chat_id}", style="danger")]
     )
-    return "🎭 Reactions\n\n" + "\n".join(lines), InlineKeyboardMarkup(rows)
+    body = "\n".join(lines) if lines else f"No {mode} reactions yet."
+    return f"{title}\n\n{body}", InlineKeyboardMarkup(rows)
 
 
 async def _send_response(c: Client, m: Message, response: dict) -> bool:
@@ -450,28 +414,29 @@ async def _maybe_keyword_react(m: Message, text: str) -> None:
 @Client.on_message(filters.command("autoreply", PREFIXES) & sudofilter)
 @use_chat_lang
 async def autoreply_settings(c: Client, m: Message, s: Strings):
-    settings = await get_settings(GLOBAL_AUTOREPLY_ID)
     arg = _command_arg(m)
     if not arg:
         if m.chat.type.name in {"PRIVATE", "BOT"}:
             text, keyboard = await _manager_content(s)
-            await m.reply_text(text, reply_markup=keyboard)
+            await send_styled_text(m, text, keyboard)
         else:
-            launcher = await m.reply_text(
-                "⚙️ Configure global auto replies in private chat.",
-                reply_markup=InlineKeyboardMarkup(
+            keyboard = InlineKeyboardMarkup(
+                [
                     [
-                        [
-                            styled_button(
-                                "⚙️ Open Global Auto Reply Manager",
-                                url=f"https://t.me/{c.me.username}?start=autoreply_global",
-                                style="primary",
-                            )
-                        ]
+                        styled_button(
+                            "⚙️ Open Global Auto Reply Manager",
+                            url=f"https://t.me/{c.me.username}?start=autoreply_global",
+                            style="primary",
+                        )
                     ]
-                ),
+                ]
             )
-            asyncio.create_task(_delete_later(m, launcher))
+            await send_styled_text(
+                m,
+                "⚙️ Configure global auto replies in private chat.",
+                keyboard,
+            )
+            asyncio.create_task(_delete_later(m))
         return
 
     parts = arg.split()
@@ -498,8 +463,8 @@ async def autoreply_settings(c: Client, m: Message, s: Strings):
         await m.reply_text(s("autoreply_usage"))
         return
 
-    settings = await get_settings(GLOBAL_AUTOREPLY_ID)
-    await m.reply_text(_settings_text(settings, s), reply_markup=_settings_keyboard(settings, s))
+    text, keyboard = await _manager_content(s)
+    await send_styled_text(m, text, keyboard)
 
 
 @Client.on_message(
@@ -515,7 +480,7 @@ async def autoreply_start(c: Client, m: Message, s: Strings):
         await m.reply_text("⛔ Sudo users only.")
         return
     text, keyboard = await _manager_content(s)
-    await m.reply_text(text, reply_markup=keyboard)
+    await send_styled_text(m, text, keyboard)
 
 
 @Client.on_callback_query(filters.regex(r"^ar:"))
@@ -524,8 +489,8 @@ async def autoreply_callback(c: Client, m: CallbackQuery, s: Strings):
     if not _can_manage(m.from_user.id if m.from_user else None):
         await m.answer("⛔ Sudo users only.", show_alert=True)
         return
-    settings = await get_settings(GLOBAL_AUTOREPLY_ID)
     action = m.data.split(":", 1)[1]
+    settings = await get_settings(GLOBAL_AUTOREPLY_ID)
     if action == "toggle":
         await set_setting(GLOBAL_AUTOREPLY_ID, "enabled", int(not settings["enabled"]))
     elif action == "mode":
@@ -558,8 +523,9 @@ async def autoreply_callback(c: Client, m: CallbackQuery, s: Strings):
             "reactions_enabled",
             int(not settings["reactions_enabled"]),
         )
-    settings = await get_settings(GLOBAL_AUTOREPLY_ID)
-    await edit_styled_text(m.message, _settings_text(settings, s), _settings_keyboard(settings, s))
+    text, keyboard = await _manager_content(s)
+    await edit_styled_text(m.message, text, keyboard)
+    await m.answer("✅ Updated")
 
 
 @Client.on_callback_query(filters.regex(r"^mgr:"))
@@ -646,14 +612,15 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
             _next_option(settings["rate_limit_per_minute"], RATE_LIMIT_OPTIONS),
         )
     elif action == "reaction-list":
-        text, keyboard = await _reaction_list_content(chat_id)
+        text, keyboard = await _reaction_list_content(chat_id, settings["mode"])
         await edit_styled_text(m.message, text, keyboard)
         await m.answer()
         return
     elif action == "confirm-clear":
-        await m.message.reply_text(
+        await send_styled_text(
+            m.message,
             "🗑 Clear replies?",
-            reply_markup=InlineKeyboardMarkup(
+            InlineKeyboardMarkup(
                 [
                     [
                         styled_button(
@@ -673,9 +640,10 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
         await m.answer()
         return
     elif action == "confirm-clear-reactions":
-        await m.message.reply_text(
+        await send_styled_text(
+            m.message,
             "🎭 Clear reactions?",
-            reply_markup=InlineKeyboardMarkup(
+            InlineKeyboardMarkup(
                 [
                     [
                         styled_button(
@@ -697,15 +665,17 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
     elif action == "clear":
         await clear_responses(chat_id, settings["mode"])
     elif action == "clear-reactions":
-        for reaction in await get_reactions(chat_id):
-            await remove_reaction(chat_id, reaction)
-        await clear_keyword_reactions(chat_id)
+        if settings["mode"] == "keyword":
+            await clear_keyword_reactions(chat_id)
+        else:
+            for reaction in await get_reactions(chat_id):
+                await remove_reaction(chat_id, reaction)
     elif action.startswith("list"):
         try:
             page = int(action.split("-", 1)[1]) if "-" in action else 0
         except ValueError:
             page = 0
-        text, keyboard = await _reply_list_content(chat_id, page)
+        text, keyboard = await _reply_list_content(chat_id, page, settings["mode"])
         await edit_styled_text(m.message, text, keyboard)
         await m.answer()
         return
@@ -722,9 +692,10 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
             await m.answer("⚠️ Reply not found.", show_alert=True)
             return
         await _send_response(c, m.message, response)
-        await m.message.reply_text(
+        await send_styled_text(
+            m.message,
             f"👁 Reply {response_id}",
-            reply_markup=InlineKeyboardMarkup(
+            InlineKeyboardMarkup(
                 [
                     [
                         styled_button(
@@ -746,7 +717,7 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
     elif action.startswith("delete-reaction-"):
         reaction = action.removeprefix("delete-reaction-")
         await remove_reaction(chat_id, reaction)
-        text, keyboard = await _reaction_list_content(chat_id)
+        text, keyboard = await _reaction_list_content(chat_id, settings["mode"])
         await edit_styled_text(m.message, text, keyboard)
         await m.answer("🗑 Deleted")
         return
@@ -759,7 +730,7 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
             await m.answer("⚠️ Invalid reply.", show_alert=True)
             return
         await delete_response(chat_id, response_id)
-        text, keyboard = await _reply_list_content(chat_id, page)
+        text, keyboard = await _reply_list_content(chat_id, page, settings["mode"])
         await edit_styled_text(m.message, text, keyboard)
         await m.answer("🗑 Deleted")
         return
@@ -949,7 +920,7 @@ async def capture_private_autoreply(c: Client, m: Message):
         else:
             await add_reaction(chat_id, reaction)
         await clear_capture_state(m.from_user.id)
-        await m.reply_text("✅ Reaction saved.", reply_markup=_saved_reply_keyboard(chat_id))
+        await send_styled_text(m, "✅ Reaction saved.", _saved_reply_keyboard(chat_id))
         raise StopPropagation
 
     if m.text:
@@ -972,9 +943,10 @@ async def capture_private_autoreply(c: Client, m: Message):
             label=_message_label(m),
         )
     await clear_capture_state(m.from_user.id)
-    await m.reply_text(
+    await send_styled_text(
+        m,
         "✅ Keyword reply saved." if state.get("capture_keywords") else "✅ Reply saved.",
-        reply_markup=_saved_reply_keyboard(chat_id),
+        _saved_reply_keyboard(chat_id),
     )
     raise StopPropagation
 

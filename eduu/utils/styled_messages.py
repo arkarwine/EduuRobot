@@ -162,7 +162,11 @@ async def send_styled_photo(
             },
         )
     except Exception:
-        await message.reply_photo(photo, caption=caption, reply_markup=_unstyled_markup(reply_markup))
+        await message.reply_photo(
+            photo,
+            caption=caption,
+            reply_markup=_unstyled_markup(reply_markup),
+        )
 
 
 async def answer_styled_inline_query(
