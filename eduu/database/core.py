@@ -126,6 +126,11 @@ class Database:
             chat_title TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS welcome_defaults(
+            kind TEXT PRIMARY KEY,
+            text TEXT
+        );
+
         CREATE TABLE IF NOT EXISTS autoreply_settings(
             chat_id INTEGER PRIMARY KEY,
             enabled INTEGER DEFAULT 1,

@@ -12,14 +12,17 @@ from hydrogram.types import ChatMemberUpdated, ChatPrivileges, InlineKeyboardMar
 
 from config import PREFIXES
 from eduu.database.welcome import (
+    get_default_template,
     get_goodbye,
     get_welcome,
+    reset_default_template,
+    set_default_template,
     set_goodbye,
     set_welcome,
     toggle_goodbye,
     toggle_welcome,
 )
-from eduu.utils import button_parser, commands, get_format_keys
+from eduu.utils import button_parser, commands, get_format_keys, sudofilter
 from eduu.utils.decorators import require_admin, stop_here
 from eduu.utils.localization import Strings, use_chat_lang
 
@@ -115,6 +118,58 @@ async def _set_template_message(
     await sent.edit_text(s(success_key).format(chat_title=m.chat.title))
 
 
+def _command_text(m: Message) -> str:
+    if not m.text:
+        return ""
+    parts = m.text.split(None, 1)
+    return parts[1].strip() if len(parts) > 1 else ""
+
+
+def _template_from_command_or_reply(m: Message) -> str | None:
+    text = _command_text(m)
+    if text:
+        return text
+    if not m.reply_to_message:
+        return None
+    return m.reply_to_message.text or m.reply_to_message.caption
+
+
+async def _preview_default_template(m: Message, text: str) -> Message:
+    preview = text.format(
+        id=m.from_user.id,
+        username=m.from_user.username,
+        mention=m.from_user.mention,
+        first_name=m.from_user.first_name,
+        full_name=m.from_user.full_name,
+        name=m.from_user.first_name,
+        title=m.chat.title or "Test Chat",
+        chat_title=m.chat.title or "Test Chat",
+        count=1,
+    )
+    return await m.reply_text(preview)
+
+
+async def _set_default_template_message(
+    c: Client,
+    m: Message,
+    s: Strings,
+    *,
+    kind: str,
+) -> None:
+    _ = c
+    text = _template_from_command_or_reply(m)
+    if not text:
+        await m.reply_text(s(f"{kind}_default_set_empty"))
+        return
+    try:
+        sent = await _preview_default_template(m, text)
+    except (KeyError, BadRequest) as e:
+        await m.reply_text(s(f"{kind}_set_error").format(error=f"{e.__class__.__name__}: {e!s}"))
+        return
+    await set_default_template(kind, text)
+    await sent.edit_text(s(f"{kind}_default_set_success"))
+
+
 @Client.on_message(filters.command("setwelcome", PREFIXES) & filters.group)
 @require_admin(ChatPrivileges(can_change_info=True))
 @use_chat_lang
@@ -127,6 +182,18 @@ async def set_welcome_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def set_goodbye_message(c: Client, m: Message, s: Strings):
     await _set_template_message(c, m, s, kind="goodbye")
+
+
+@Client.on_message(filters.command("setdefaultwelcome", PREFIXES) & sudofilter)
+@use_chat_lang
+async def set_default_welcome_message(c: Client, m: Message, s: Strings):
+    await _set_default_template_message(c, m, s, kind="welcome")
+
+
+@Client.on_message(filters.command("setdefaultgoodbye", PREFIXES) & sudofilter)
+@use_chat_lang
+async def set_default_goodbye_message(c: Client, m: Message, s: Strings):
+    await _set_default_template_message(c, m, s, kind="goodbye")
 
 
 def _recently_processed(chat_id: int, user_id: int, kind: str) -> bool:
@@ -149,10 +216,10 @@ async def _send_template(
 ) -> None:
     if kind == "welcome":
         template, enabled, media_file_id, media_type = await get_welcome(chat_id)
-        default_text = s("welcome_default")
+        default_text = await get_default_template("welcome", s("welcome_default"))
     else:
         template, enabled, media_file_id, media_type = await get_goodbye(chat_id)
-        default_text = s("goodbye_default")
+        default_text = await get_default_template("goodbye", s("goodbye_default"))
 
     if not enabled:
         return
@@ -282,7 +349,11 @@ async def invalid_goodbye_status_arg(c: Client, m: Message, s: Strings):
 async def getwelcomemsg(c: Client, m: Message, s: Strings):
     welcome, welcome_enabled, media_file_id, media_type = await get_welcome(m.chat.id)
     if welcome_enabled:
-        text = s("welcome_default") if welcome is None else welcome
+        text = (
+            await get_default_template("welcome", s("welcome_default"))
+            if welcome is None
+            else welcome
+        )
         msg = f"{text}\n\n" + (f"[Media: {media_type}]" if media_file_id else "")
         await m.reply_text(msg, parse_mode=ParseMode.DISABLED)
     else:
@@ -295,11 +366,29 @@ async def getwelcomemsg(c: Client, m: Message, s: Strings):
 async def getgoodbyemsg(c: Client, m: Message, s: Strings):
     goodbye, goodbye_enabled, media_file_id, media_type = await get_goodbye(m.chat.id)
     if goodbye_enabled:
-        text = s("goodbye_default") if goodbye is None else goodbye
+        text = (
+            await get_default_template("goodbye", s("goodbye_default"))
+            if goodbye is None
+            else goodbye
+        )
         msg = f"{text}\n\n" + (f"[Media: {media_type}]" if media_file_id else "")
         await m.reply_text(msg, parse_mode=ParseMode.DISABLED)
     else:
         await m.reply_text("None")
+
+
+@Client.on_message(filters.command("getdefaultwelcome", PREFIXES) & sudofilter)
+@use_chat_lang
+async def get_default_welcome_message(c: Client, m: Message, s: Strings):
+    text = await get_default_template("welcome", s("welcome_default"))
+    await m.reply_text(text, parse_mode=ParseMode.DISABLED)
+
+
+@Client.on_message(filters.command("getdefaultgoodbye", PREFIXES) & sudofilter)
+@use_chat_lang
+async def get_default_goodbye_message(c: Client, m: Message, s: Strings):
+    text = await get_default_template("goodbye", s("goodbye_default"))
+    await m.reply_text(text, parse_mode=ParseMode.DISABLED)
 
 
 @Client.on_message(filters.command("welcome on", PREFIXES) & filters.group)
@@ -350,15 +439,35 @@ async def reset_goodbye_message(c: Client, m: Message, s: Strings):
     await m.reply_text(s("goodbye_reset").format(chat_title=m.chat.title))
 
 
+@Client.on_message(filters.command("resetdefaultwelcome", PREFIXES) & sudofilter)
+@use_chat_lang
+async def reset_default_welcome_message(c: Client, m: Message, s: Strings):
+    await reset_default_template("welcome")
+    await m.reply_text(s("welcome_default_reset"))
+
+
+@Client.on_message(filters.command("resetdefaultgoodbye", PREFIXES) & sudofilter)
+@use_chat_lang
+async def reset_default_goodbye_message(c: Client, m: Message, s: Strings):
+    await reset_default_template("goodbye")
+    await m.reply_text(s("goodbye_default_reset"))
+
+
 for command in (
     "resetwelcome",
     "setwelcome",
     "getwelcome",
+    "setdefaultwelcome",
+    "getdefaultwelcome",
+    "resetdefaultwelcome",
     "welcome",
     "welcomeformat",
     "resetgoodbye",
     "setgoodbye",
     "getgoodbye",
+    "setdefaultgoodbye",
+    "getdefaultgoodbye",
+    "resetdefaultgoodbye",
     "goodbye",
     "goodbyeformat",
 ):

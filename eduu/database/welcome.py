@@ -12,6 +12,14 @@ conn = database.get_conn()
 
 async def _ensure_columns():
     """Attempt to add welcome/goodbye columns if they don't exist."""
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS welcome_defaults(
+            kind TEXT PRIMARY KEY,
+            text TEXT
+        )
+        """
+    )
     columns = {
         "welcome_media_file_id": "TEXT",
         "welcome_media_type": "TEXT",
@@ -26,6 +34,35 @@ async def _ensure_columns():
             await conn.commit()
         except Exception:
             pass
+
+
+async def get_default_template(kind: str, fallback: str) -> str:
+    await _ensure_columns()
+    cursor = await conn.execute(
+        "SELECT text FROM welcome_defaults WHERE kind = ?",
+        (kind,),
+    )
+    row = await cursor.fetchone()
+    return row[0] if row and row[0] else fallback
+
+
+async def set_default_template(kind: str, text: str) -> None:
+    await _ensure_columns()
+    await conn.execute(
+        """
+        INSERT INTO welcome_defaults(kind, text)
+        VALUES(?, ?)
+        ON CONFLICT(kind) DO UPDATE SET text = excluded.text
+        """,
+        (kind, text),
+    )
+    await conn.commit()
+
+
+async def reset_default_template(kind: str) -> None:
+    await _ensure_columns()
+    await conn.execute("DELETE FROM welcome_defaults WHERE kind = ?", (kind,))
+    await conn.commit()
 
 
 async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str], Optional[str]]:
