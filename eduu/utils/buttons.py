@@ -3,13 +3,11 @@
 
 from __future__ import annotations
 
-from inspect import signature
 from typing import Any, Literal
 
 from hydrogram.types import InlineKeyboardButton
 
-ButtonStyle = Literal["primary", "success", "danger"]
-supports_button_style = "style" in signature(InlineKeyboardButton).parameters
+ButtonStyle = Literal["primary", "secondary", "success", "danger"]
 
 
 def styled_button(
@@ -18,9 +16,11 @@ def styled_button(
     style: ButtonStyle | None = None,
     **kwargs: Any,
 ) -> InlineKeyboardButton:
-    # Omitting style uses Telegram's normal app-specific button appearance.
-    if style and supports_button_style:
-        kwargs["style"] = style
-    button = InlineKeyboardButton(text, **kwargs)
+    if not style:
+        return InlineKeyboardButton(text, **kwargs)
+    try:
+        button = InlineKeyboardButton(text, style=style, **kwargs)
+    except TypeError:
+        button = InlineKeyboardButton(text, **kwargs)
     button.style = style
     return button

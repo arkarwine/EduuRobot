@@ -166,6 +166,7 @@ async def tiktok_command(c: Client, m: Message, s: Strings):
 @Client.on_message(filters.group & filters.incoming & ~filters.service, group=2)
 @use_chat_lang
 async def tiktok_auto_download(c: Client, m: Message, s: Strings):
+    """Automatically download TikTok links from normal group messages and captions."""
     if not await get_tiktok_autodl(m.chat.id):
         return
     url = _first_tiktok_url(m)
