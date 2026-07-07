@@ -27,6 +27,8 @@ class Database:
             chat_id INTEGER PRIMARY KEY,
             welcome TEXT,
             welcome_enabled INTEGER,
+            goodbye TEXT,
+            goodbye_enabled INTEGER,
             rules TEXT,
             warns_limit INTEGER,
             chat_lang TEXT,
@@ -112,6 +114,45 @@ class Database:
             delay_seconds INTEGER DEFAULT 2,
             hidden INTEGER DEFAULT 1,
             include_admins INTEGER DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_settings(
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            enabled INTEGER DEFAULT 1,
+            reply_chance INTEGER DEFAULT 50,
+            cooldown_seconds INTEGER DEFAULT 10,
+            rate_limit_per_minute INTEGER DEFAULT 0,
+            reactions_enabled INTEGER DEFAULT 1,
+            reaction_chance INTEGER DEFAULT 25
+        );
+
+        INSERT OR IGNORE INTO auto_reply_settings (
+            id,
+            enabled,
+            reply_chance,
+            cooldown_seconds,
+            rate_limit_per_minute,
+            reactions_enabled,
+            reaction_chance
+        )
+        SELECT 1, enabled, reply_chance, cooldown_seconds, rate_limit_per_minute, reactions_enabled, reaction_chance
+        FROM auto_reply_groups
+        LIMIT 1;
+
+        CREATE TABLE IF NOT EXISTS auto_reply_responses(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER,
+            source_chat_id INTEGER,
+            source_message_id INTEGER,
+            text TEXT,
+            label TEXT,
+            has_preview INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS auto_reply_reactions(
+            chat_id INTEGER,
+            reaction TEXT,
+            UNIQUE(chat_id, reaction)
         );
 
         CREATE TABLE IF NOT EXISTS chat_logs(

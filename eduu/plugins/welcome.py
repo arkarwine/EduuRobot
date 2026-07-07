@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018-2026 Amano LLC
 
+import asyncio
 import logging
 from time import time
 
@@ -10,7 +11,14 @@ from hydrogram.errors import BadRequest
 from hydrogram.types import ChatMemberUpdated, ChatPrivileges, InlineKeyboardMarkup, Message
 
 from config import PREFIXES
-from eduu.database.welcome import get_welcome, set_welcome, toggle_welcome
+from eduu.database.welcome import (
+    get_welcome,
+    get_goodbye,
+    set_welcome,
+    set_goodbye,
+    toggle_welcome,
+    toggle_goodbye,
+)
 from eduu.utils import button_parser, commands, get_format_keys
 from eduu.utils.decorators import require_admin, stop_here
 from eduu.utils.localization import Strings, use_chat_lang
@@ -83,6 +91,103 @@ async def set_welcome_message(c: Client, m: Message, s: Strings):
     await sent.edit_text(s("welcome_set_success").format(chat_title=m.chat.title))
 
 
+@Client.on_message(filters.command("setgoodbye", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def set_goodbye_message(c: Client, m: Message, s: Strings):
+    if not m.reply_to_message:
+        await m.reply_text(
+            s("goodbye_set_empty").format(bot_username=c.me.username),
+            disable_web_page_preview=True,
+        )
+        return
+
+    src = m.reply_to_message
+
+    media_file_id = None
+    media_type = None
+    if src.photo:
+        media_file_id = src.photo.file_id
+        media_type = "photo"
+        message = src.caption or None
+    elif src.video:
+        media_file_id = src.video.file_id
+        media_type = "video"
+        message = src.caption or None
+    else:
+        message = src.text or src.caption or None
+
+    if not message and not media_file_id:
+        await m.reply_text(s("goodbye_set_empty").format(bot_username=c.me.username))
+        return
+
+    preview = message or ""
+    try:
+        preview_formatted = preview.format(
+            id=m.from_user.id,
+            username=m.from_user.username,
+            mention=m.from_user.mention,
+            first_name=m.from_user.first_name,
+            full_name=m.from_user.full_name,
+            name=m.from_user.first_name,
+            title=m.chat.title,
+            chat_title=m.chat.title,
+            count=(await c.get_chat_members_count(m.chat.id)),
+        ) if preview else ""
+        sent = await m.reply_text(preview_formatted or s("goodbye_set_success"))
+    except (KeyError, BadRequest) as e:
+        await m.reply_text(s("goodbye_set_error").format(error=f"{e.__class__.__name__}: {e!s}"))
+        return
+
+    await set_goodbye(m.chat.id, message, media_file_id, media_type)
+    await sent.edit_text(s("goodbye_set_success").format(chat_title=m.chat.title))
+
+
+@Client.on_message(filters.command("getgoodbye", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def get_goodbye_message(c: Client, m: Message, s: Strings):
+    goodbye, goodbye_enabled, media_file_id, media_type = await get_goodbye(m.chat.id)
+    if goodbye_enabled:
+        text = s("goodbye_default") if goodbye is None else goodbye
+        msg = f"{text}\n\n" + (f"[Media: {media_type}]" if media_file_id else "")
+        await m.reply_text(msg, parse_mode=ParseMode.DISABLED)
+    else:
+        await m.reply_text("None")
+
+
+@Client.on_message(filters.command("goodbye on", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def enable_goodbye_message(c: Client, m: Message, s: Strings):
+    await toggle_goodbye(m.chat.id, True)
+    await m.reply_text(s("goodbye_mode_enable").format(chat_title=m.chat.title))
+
+
+@Client.on_message(filters.command("goodbye off", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def disable_goodbye_message(c: Client, m: Message, s: Strings):
+    await toggle_goodbye(m.chat.id, False)
+    await m.reply_text(s("goodbye_mode_disable").format(chat_title=m.chat.title))
+
+
+@Client.on_message(
+    (filters.command("goodbye") & ~filters.command(["goodbye on", "goodbye off"])) & filters.group
+)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def invalid_goodbye_status_arg(c: Client, m: Message, s: Strings):
+    await m.reply_text(s("goodbye_mode_invalid"))
+
+
+@Client.on_message(filters.command(["resetgoodbye", "cleargoodbye"], PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def reset_goodbye_message(c: Client, m: Message, s: Strings):
+    await set_goodbye(m.chat.id, None, None, None)
+    await m.reply_text(s("goodbye_reset").format(chat_title=m.chat.title))
+
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 _welcomed: dict[tuple, float] = {}
@@ -130,35 +235,141 @@ async def _send_welcome(c: Client, chat_id: int, chat_title: str, members: list,
     welcome, welcome_buttons = button_parser(welcome)
     reply_markup = InlineKeyboardMarkup(welcome_buttons) if welcome_buttons else None
 
+    sent = None
     try:
         if media_file_id and media_type == "photo":
-            await c.send_photo(
+            sent = await c.send_photo(
                 chat_id=chat_id,
                 photo=media_file_id,
                 caption=welcome,
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.HTML,
             )
-            return
-        if media_file_id and media_type == "video":
-            await c.send_video(
+        elif media_file_id and media_type == "video":
+            sent = await c.send_video(
                 chat_id=chat_id,
                 video=media_file_id,
                 caption=welcome,
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.HTML,
             )
-            return
     except Exception:
         pass
 
-    await c.send_message(
-        chat_id=chat_id,
-        text=welcome,
-        disable_web_page_preview=True,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
+    if not sent:
+        sent = await c.send_message(
+            chat_id=chat_id,
+            text=welcome,
+            disable_web_page_preview=True,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
+
+    await _delete_after_delay(c, chat_id, sent.id)
+
+
+async def _send_goodbye(c: Client, chat_id: int, chat_title: str, members: list, s: Strings):
+    goodbye, goodbye_enabled, media_file_id, media_type = await get_goodbye(chat_id)
+    if not goodbye_enabled:
+        return
+
+    if goodbye is None:
+        goodbye = s("goodbye_default")
+
+    if "count" in get_format_keys(goodbye):
+        count = await c.get_chat_members_count(chat_id)
+    else:
+        count = 0
+
+    mention = ", ".join(a.mention for a in members)
+    username = ", ".join(f"@{a.username}" if a.username else a.mention for a in members)
+    user_id = ", ".join(str(a.id) for a in members)
+    full_name = ", ".join(f"{a.first_name} " + (a.last_name or "") for a in members)
+    first_name = ", ".join(a.first_name for a in members)
+
+    goodbye = (goodbye or s("goodbye_default")).format(
+        id=user_id,
+        username=username,
+        mention=mention,
+        first_name=first_name,
+        full_name=full_name,
+        name=full_name,
+        title=chat_title,
+        chat_title=chat_title,
+        count=count,
     )
+    goodbye, goodbye_buttons = button_parser(goodbye)
+    reply_markup = InlineKeyboardMarkup(goodbye_buttons) if goodbye_buttons else None
+
+    sent = None
+    try:
+        if media_file_id and media_type == "photo":
+            sent = await c.send_photo(
+                chat_id=chat_id,
+                photo=media_file_id,
+                caption=goodbye,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML,
+            )
+        elif media_file_id and media_type == "video":
+            sent = await c.send_video(
+                chat_id=chat_id,
+                video=media_file_id,
+                caption=goodbye,
+                reply_markup=reply_markup,
+                parse_mode=ParseMode.HTML,
+            )
+    except Exception:
+        pass
+
+    if not sent:
+        sent = await c.send_message(
+            chat_id=chat_id,
+            text=goodbye,
+            disable_web_page_preview=True,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
+
+    await _delete_after_delay(c, chat_id, sent.id)
+
+async def _delete_after_delay(c: Client, chat_id: int, message_id: int, delay: int = 10):
+    await asyncio.sleep(delay)
+    try:
+        await c.delete_messages(chat_id, [message_id])
+    except Exception:
+        pass
+
+_farewelled: dict[tuple, float] = {}
+
+
+def _already_farewelled(chat_id: int, user_id: int) -> bool:
+    key = (chat_id, user_id)
+    now = time()
+    if key in _farewelled and now - _farewelled[key] < 5:
+        return True
+    _farewelled[key] = now
+    return False
+
+
+@Client.on_chat_member_updated()
+@use_chat_lang
+async def farewell_member_update(c: Client, update: ChatMemberUpdated, s: Strings):
+    old_status = update.old_chat_member.status.value if update.old_chat_member else "left"
+    new_status = update.new_chat_member.status.value if update.new_chat_member else "left"
+
+    if old_status not in ("member", "administrator", "owner") or new_status not in NON_MEMBER_STATUSES:
+        return
+
+    user = update.new_chat_member.user
+    if user.is_bot:
+        return
+
+    if _already_farewelled(update.chat.id, user.id):
+        return
+
+    logger.info(f"Processing goodbye (chat_member_updated) for {user.id} in {update.chat.id}")
+    await _send_goodbye(c, update.chat.id, update.chat.title, [user], s)
 
 
 @Client.on_chat_member_updated()
@@ -242,93 +453,12 @@ async def reset_welcome_message(c: Client, m: Message, s: Strings):
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 
-@Client.on_chat_member_updated()
-@use_chat_lang
-async def debug_member_update(c: Client, update: ChatMemberUpdated, s: Strings):
-    logger.info(f"chat_member_updated fired in {update.chat.id}")
-    logger.info(f"old: {update.old_chat_member}")
-    logger.info(f"new: {update.new_chat_member}")
-    if update.old_chat_member:
-        logger.info(f"old status: {repr(update.old_chat_member.status)}")
-    if update.new_chat_member:
-        logger.info(f"new status: {repr(update.new_chat_member.status)}")
-    # Only handle actual joins
-    old_status = update.old_chat_member.status.value if update.old_chat_member else "left"
-    new_status = update.new_chat_member.status.value if update.new_chat_member else "left"
-
-    if old_status not in NON_MEMBER_STATUSES or new_status not in ("member", "administrator", "owner"):
-        return
-
-    user = update.new_chat_member.user
-    if user.is_bot:
-        return
-
-    logger.info(f"Processing welcome for new member {user.id} in chat {update.chat.id}")
-
-    welcome, welcome_enabled, media_file_id, media_type = await get_welcome(update.chat.id)
-    if not welcome_enabled:
-        return
-
-    if welcome is None:
-        welcome = s("welcome_default")
-
-    if "count" in get_format_keys(welcome):
-        count = await c.get_chat_members_count(update.chat.id)
-    else:
-        count = 0
-
-    chat_title = update.chat.title
-    mention = user.mention
-    username = f"@{user.username}" if user.username else user.mention
-    user_id = str(user.id)
-    full_name = f"{user.first_name} " + (user.last_name or "")
-    first_name = user.first_name
-
-    welcome = (welcome or s("welcome_default")).format(
-        id=user_id,
-        username=username,
-        mention=mention,
-        first_name=first_name,
-        full_name=full_name,
-        name=full_name,
-        title=chat_title,
-        chat_title=chat_title,
-        count=count,
-    )
-    welcome, welcome_buttons = button_parser(welcome)
-    reply_markup = InlineKeyboardMarkup(welcome_buttons) if welcome_buttons else None
-
-    try:
-        if media_file_id and media_type == "photo":
-            await c.send_photo(
-                chat_id=update.chat.id,
-                photo=media_file_id,
-                caption=welcome,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
-            )
-            return
-        if media_file_id and media_type == "video":
-            await c.send_video(
-                chat_id=update.chat.id,
-                video=media_file_id,
-                caption=welcome,
-                reply_markup=reply_markup,
-                parse_mode=ParseMode.HTML,
-            )
-            return
-    except Exception:
-        pass
-
-    await c.send_message(
-        chat_id=update.chat.id,
-        text=welcome,
-        disable_web_page_preview=True,
-        reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML,
-    )
 
 commands.add_command("resetwelcome", "admin_welcome")
 commands.add_command("setwelcome", "admin_welcome")
 commands.add_command("welcome", "admin_welcome")
 commands.add_command("welcomeformat", "admin_welcome")
+commands.add_command("resetgoodbye", "admin_welcome")
+commands.add_command("setgoodbye", "admin_welcome")
+commands.add_command("goodbye", "admin_welcome")
+commands.add_command("goodbyeformat", "admin_welcome")

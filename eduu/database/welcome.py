@@ -11,19 +11,19 @@ conn = database.get_conn()
 
 
 async def _ensure_columns():
-    """Attempt to add welcome media columns if they don't exist."""
-    try:
-        await conn.execute("ALTER TABLE groups ADD COLUMN welcome_media_file_id TEXT")
-        await conn.commit()
-    except Exception:
-        # Column probably exists
-        pass
-
-    try:
-        await conn.execute("ALTER TABLE groups ADD COLUMN welcome_media_type TEXT")
-        await conn.commit()
-    except Exception:
-        pass
+    """Attempt to add welcome and goodbye columns if they don't exist."""
+    for column in (
+        "welcome_media_file_id TEXT",
+        "welcome_media_type TEXT",
+        "goodbye_enabled INTEGER",
+        "goodbye_media_file_id TEXT",
+        "goodbye_media_type TEXT",
+    ):
+        try:
+            await conn.execute(f"ALTER TABLE groups ADD COLUMN {column}")
+            await conn.commit()
+        except Exception:
+            pass
 
 
 async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str], Optional[str]]:
@@ -40,6 +40,51 @@ async def get_welcome(chat_id: int) -> Tuple[Optional[str], bool, Optional[str],
     if enabled is None:
         enabled = True
     return row[0], bool(enabled), row[2], row[3]
+
+
+async def get_goodbye(chat_id: int) -> Tuple[Optional[str], bool, Optional[str], Optional[str]]:
+    """Return (goodbye_text, goodbye_enabled, media_file_id, media_type)."""
+    await _ensure_columns()
+    cursor = await conn.execute(
+        "SELECT goodbye, goodbye_enabled, goodbye_media_file_id, goodbye_media_type FROM groups WHERE chat_id = (?)",
+        (chat_id,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return None, True, None, None
+    enabled = row[1]
+    if enabled is None:
+        enabled = True
+    return row[0], bool(enabled), row[2], row[3]
+
+
+async def set_goodbye(
+    chat_id: int,
+    goodbye: Optional[str],
+    media_file_id: Optional[str] = None,
+    media_type: Optional[str] = None,
+):
+    """Set goodbye text and optional media for a chat."""
+    await _ensure_columns()
+    cursor = await conn.execute("SELECT * FROM groups WHERE chat_id = ?", (chat_id,))
+    row = await cursor.fetchone()
+
+    if row:
+        await conn.execute(
+            "UPDATE groups SET goodbye = ?, goodbye_enabled = ?, goodbye_media_file_id = ?, goodbye_media_type = ? WHERE chat_id = ?",
+            (goodbye, True, media_file_id, media_type, chat_id),
+        )
+    else:
+        await conn.execute(
+            "INSERT INTO groups (chat_id, goodbye, goodbye_enabled, goodbye_media_file_id, goodbye_media_type) VALUES (?, ?, ?, ?, ?)",
+            (chat_id, goodbye, True, media_file_id, media_type),
+        )
+    await conn.commit()
+
+
+async def toggle_goodbye(chat_id: int, mode: bool):
+    await conn.execute("UPDATE groups SET goodbye_enabled = ? WHERE chat_id = ?", (mode, chat_id))
+    await conn.commit()
 
 
 async def set_welcome(chat_id: int, welcome: Optional[str], media_file_id: Optional[str] = None, media_type: Optional[str] = None):
