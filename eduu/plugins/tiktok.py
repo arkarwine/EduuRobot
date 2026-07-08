@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import subprocess
 import sys
@@ -29,6 +30,7 @@ TIKTOK_RE = re.compile(
 )
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
+AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".opus"}
 MEDIA_GROUP_LIMIT = 10
 
 
@@ -105,6 +107,9 @@ def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, An
 
 
 def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
+    cache_dir = Path(directory) / ".cache"
+    env = os.environ.copy()
+    env["XDG_CACHE_HOME"] = str(cache_dir)
     command = [
         sys.executable,
         "-m",
@@ -116,6 +121,7 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
         check=False,
         capture_output=True,
         cwd=directory,
+        env=env,
         text=True,
         timeout=180,
     )
@@ -133,8 +139,45 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
             raise GalleryDownloadError(error[-500:])
         raise GalleryDownloadError("gallery-dl did not create a media file.")
 
+    selected_files = _ordered_slideshow_files(files)
+    return selected_files, _gallery_info(selected_files)
+
+
+def _ordered_slideshow_files(files: list[Path]) -> list[Path]:
     images = [path for path in files if path.suffix.casefold() in IMAGE_EXTENSIONS]
-    return images or files, {"title": "TikTok slideshow"}
+    audio = [path for path in files if path.suffix.casefold() in AUDIO_EXTENSIONS]
+    if images:
+        return [*images, *audio]
+    return files
+
+
+def _gallery_info(paths: list[Path]) -> dict[str, Any]:
+    first = paths[0]
+    uploader = _gallery_uploader(first)
+    title = _gallery_title(first)
+    return {
+        "title": title or "TikTok slideshow",
+        "description": title or "",
+        "uploader": uploader,
+    }
+
+
+def _gallery_uploader(path: Path) -> str:
+    parts = path.parts
+    if len(parts) >= 3 and parts[-3] == "tiktok":
+        return parts[-2]
+    if len(parts) >= 2:
+        return parts[-2]
+    return ""
+
+
+def _gallery_title(path: Path) -> str:
+    stem = path.stem
+    stem = re.sub(r"\s+\[[^\]]+\]$", "", stem)
+    stem = re.sub(r"^\d+(?:_\d+)?\s*", "", stem).strip()
+    if stem.startswith("(") and ")" in stem:
+        stem = stem[1:]
+    return stem.strip()
 
 
 def _caption(info: dict[str, Any], source_url: str) -> str:
@@ -179,9 +222,17 @@ async def _send_downloaded_media(
 ) -> None:
     images = [path for path in paths if path.suffix.casefold() in IMAGE_EXTENSIONS]
     videos = [path for path in paths if path.suffix.casefold() in VIDEO_EXTENSIONS]
+    audio = [path for path in paths if path.suffix.casefold() in AUDIO_EXTENSIONS]
 
     if images and not videos:
         await _send_photos(c, m, images, caption)
+        for index, path in enumerate(audio):
+            await c.send_audio(
+                chat_id=m.chat.id,
+                audio=str(path),
+                caption=caption if index == 0 else "",
+                reply_to_message_id=m.id if index == 0 else None,
+            )
         return
 
     path = max(videos or paths, key=lambda item: item.stat().st_size)
