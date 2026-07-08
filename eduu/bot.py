@@ -14,6 +14,7 @@ from hydrogram.raw.all import layer
 
 from config import API_HASH, API_ID, DISABLED_PLUGINS, LOG_CHAT, TOKEN, WORKERS
 from eduu.utils import commands, http
+from eduu.utils.bot_identity import cache_bot_identity
 
 from . import __commit__, __version_number__
 
@@ -115,7 +116,7 @@ class Eduu(Client):
 
         super().__init__(
             name=name,
-            app_version=f"EduuRobot r{__version_number__} ({__commit__})",
+            app_version=f"family_bot r{__version_number__} ({__commit__})",
             api_id=API_ID,
             api_hash=API_HASH,
             bot_token=TOKEN,
@@ -130,9 +131,12 @@ class Eduu(Client):
         await super().start()
 
         self.start_time = time.time()
+        cache_bot_identity(name=self.me.first_name, username=self.me.username)
+        bot_name = self.me.first_name or self.me.username or "Bot"
 
         logger.info(
-            "Eduu running with Hydrogram v%s (Layer %s) started on @%s. Hi!",
+            "%s running with Hydrogram v%s (Layer %s) started on @%s. Hi!",
+            bot_name,
             hydrogram.__version__,
             layer,
             self.me.username,
@@ -161,7 +165,7 @@ class Eduu(Client):
         await del_restarted()
 
         start_message = (
-            "<b>EduuRobot started!</b>\n\n"
+            f"<b>{bot_name} started!</b>\n\n"
             f"<b>Version number:</b> <code>r{__version_number__} ({__commit__})</code>\n"
             f"<b>Hydrogram:</b> <code>v{hydrogram.__version__}</code>"
         )

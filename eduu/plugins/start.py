@@ -16,6 +16,7 @@ from hydrogram.types import (
 from config import OWNER_URL, PREFIXES, START_IMG_URL, UPDATES_CHANNEL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
+from eduu.utils.bot_identity import get_bot_name
 from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send_styled_text
@@ -70,7 +71,7 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    start_text = s("start_private")
+    start_text = s("start_private").format(bot_name=get_bot_name())
 
     if isinstance(m, CallbackQuery):
         await edit_styled_text(msg, start_text, keyboard)
@@ -100,13 +101,14 @@ async def start_grp(c: Client, m: Message, s: Strings):
             ]
         ]
     )
-    await send_styled_text(m, s("start_group"), keyboard)
+    await send_styled_text(m, s("start_group").format(bot_name=get_bot_name()), keyboard)
 
 
 @Client.on_callback_query(filters.regex("^infos$"))
 @use_chat_lang
 async def infos(c: Client, m: CallbackQuery, s: Strings):
     res = s("start_info_page").format(
+        bot_name=get_bot_name(),
         version_number=f"r{__version_number__}",
         commit_hash=linkify_commit(__commit__),
         copyright_year=__copyright_year__,
