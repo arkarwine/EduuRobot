@@ -26,7 +26,7 @@ from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 BROADCAST_BATCH_SIZE = 10
-BROADCAST_BATCH_DELAY_SECONDS = 0.5
+BROADCAST_DELAY_SECONDS = 0.5
 BROADCAST_PREVIEW_LIMIT = 700
 BROADCAST_PENDING_TTL = 15 * 60
 
@@ -177,13 +177,13 @@ async def confirm_broadcast(c: Client, m: CallbackQuery, s: Strings):
                     total=chat_count,
                     successful=successful,
                     failed=failed,
-                    delay=BROADCAST_BATCH_DELAY_SECONDS,
+                    delay=BROADCAST_DELAY_SECONDS,
                 ),
                 None,
             )
 
             if completed < chat_count:
-                await asyncio.sleep(BROADCAST_BATCH_DELAY_SECONDS)
+                await asyncio.sleep(BROADCAST_DELAY_SECONDS)
 
         await edit_styled_text(
             m.message,

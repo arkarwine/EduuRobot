@@ -92,7 +92,7 @@ async def get_private_broadcast_chat_ids():
         """
         SELECT chat_id
         FROM chat_logs
-        WHERE private_interacted = 1
+        WHERE COALESCE(private_interacted, 0) = 1
           AND chat_type IN (?, ?)
         """,
         (str(ChatType.PRIVATE), "private"),
