@@ -121,10 +121,6 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
         text=True,
         timeout=180,
     )
-    if completed.returncode != 0:
-        error = completed.stderr.strip() or completed.stdout.strip() or "gallery-dl failed"
-        raise GalleryDownloadError(error[-500:])
-
     files = sorted(
         (
             path
@@ -134,9 +130,13 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
         key=lambda path: path.name,
     )
     if not files:
+        if completed.returncode != 0:
+            error = completed.stderr.strip() or completed.stdout.strip() or "gallery-dl failed"
+            raise GalleryDownloadError(error[-500:])
         raise GalleryDownloadError("gallery-dl did not create a media file.")
 
-    return files, {"title": "TikTok slideshow"}
+    images = [path for path in files if path.suffix.casefold() in IMAGE_EXTENSIONS]
+    return images or files, {"title": "TikTok slideshow"}
 
 
 def _caption(info: dict[str, Any], source_url: str) -> str:
