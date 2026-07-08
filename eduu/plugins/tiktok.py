@@ -12,7 +12,7 @@ from typing import Any
 from hydrogram import Client, StopPropagation, filters
 from hydrogram.enums import ChatType, MessageEntityType
 from hydrogram.errors import RPCError
-from hydrogram.types import ChatPrivileges, Message
+from hydrogram.types import ChatPrivileges, InputMediaPhoto, Message
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
@@ -25,6 +25,9 @@ TIKTOK_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.|vm\.|vt\.)?tiktok\.com/[^\s<>()]+",
     re.IGNORECASE,
 )
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
+MEDIA_GROUP_LIMIT = 10
 
 
 def _command_arg(m: Message) -> str:
@@ -65,8 +68,8 @@ def _first_tiktok_url(*messages: Message | None, extra_text: str = "") -> str | 
     return None
 
 
-def _download_tiktok(url: str, directory: str) -> tuple[Path, dict[str, Any]]:
-    output = str(Path(directory) / "%(id).80s.%(ext)s")
+def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
+    output = str(Path(directory) / "%(id).80s-%(autonumber)03d.%(ext)s")
     options = {
         "format": "bv*+ba/best[ext=mp4]/best",
         "merge_output_format": "mp4",
@@ -78,10 +81,17 @@ def _download_tiktok(url: str, directory: str) -> tuple[Path, dict[str, Any]]:
     }
     with YoutubeDL(options) as ydl:
         info = ydl.extract_info(url, download=True)
-    files = [path for path in Path(directory).iterdir() if path.is_file()]
+    files = sorted(
+        (
+            path
+            for path in Path(directory).iterdir()
+            if path.is_file() and not path.name.endswith((".part", ".ytdl"))
+        ),
+        key=lambda path: path.name,
+    )
     if not files:
         raise FileNotFoundError("yt-dlp did not create a media file.")
-    return max(files, key=lambda path: path.stat().st_size), info
+    return files, info
 
 
 def _caption(info: dict[str, Any], source_url: str) -> str:
@@ -98,23 +108,9 @@ async def _download_and_send(c: Client, m: Message, url: str, s: Strings) -> boo
     status = await m.reply_text(s("tiktok_downloading"))
     try:
         with TemporaryDirectory(prefix="eduu_tiktok_") as directory:
-            path, info = await asyncio.to_thread(_download_tiktok, url, directory)
+            paths, info = await asyncio.to_thread(_download_tiktok, url, directory)
             caption = _caption(info, url)
-            try:
-                await c.send_video(
-                    chat_id=m.chat.id,
-                    video=str(path),
-                    caption=caption,
-                    supports_streaming=True,
-                    reply_to_message_id=m.id,
-                )
-            except RPCError:
-                await c.send_document(
-                    chat_id=m.chat.id,
-                    document=str(path),
-                    caption=caption,
-                    reply_to_message_id=m.id,
-                )
+            await _send_downloaded_media(c, m, paths, caption)
     except DownloadError as e:
         await status.edit_text(s("tiktok_download_failed").format(error=escape(str(e)[:250])))
         return False
@@ -127,6 +123,86 @@ async def _download_and_send(c: Client, m: Message, url: str, s: Strings) -> boo
     except RPCError:
         pass
     return True
+
+
+async def _send_downloaded_media(
+    c: Client,
+    m: Message,
+    paths: list[Path],
+    caption: str,
+) -> None:
+    images = [path for path in paths if path.suffix.casefold() in IMAGE_EXTENSIONS]
+    videos = [path for path in paths if path.suffix.casefold() in VIDEO_EXTENSIONS]
+
+    if images and not videos:
+        await _send_photos(c, m, images, caption)
+        return
+
+    path = max(videos or paths, key=lambda item: item.stat().st_size)
+    try:
+        await c.send_video(
+            chat_id=m.chat.id,
+            video=str(path),
+            caption=caption,
+            supports_streaming=True,
+            reply_to_message_id=m.id,
+        )
+    except RPCError:
+        await c.send_document(
+            chat_id=m.chat.id,
+            document=str(path),
+            caption=caption,
+            reply_to_message_id=m.id,
+        )
+
+
+async def _send_photos(
+    c: Client,
+    m: Message,
+    paths: list[Path],
+    caption: str,
+) -> None:
+    if len(paths) == 1:
+        try:
+            await c.send_photo(
+                chat_id=m.chat.id,
+                photo=str(paths[0]),
+                caption=caption,
+                reply_to_message_id=m.id,
+            )
+            return
+        except RPCError:
+            await c.send_document(
+                chat_id=m.chat.id,
+                document=str(paths[0]),
+                caption=caption,
+                reply_to_message_id=m.id,
+            )
+            return
+
+    try:
+        for start in range(0, len(paths), MEDIA_GROUP_LIMIT):
+            chunk = paths[start : start + MEDIA_GROUP_LIMIT]
+            media = [
+                InputMediaPhoto(
+                    media=str(path),
+                    caption=caption if start == 0 and index == 0 else "",
+                )
+                for index, path in enumerate(chunk)
+            ]
+            await c.send_media_group(
+                chat_id=m.chat.id,
+                media=media,
+                reply_to_message_id=m.id if start == 0 else None,
+            )
+    except RPCError:
+        for index, path in enumerate(paths):
+            await c.send_document(
+                chat_id=m.chat.id,
+                document=str(path),
+                caption=caption if index == 0 else "",
+                reply_to_message_id=m.id if index == 0 else None,
+            )
 
 
 @Client.on_message(filters.command("tiktok", PREFIXES))
