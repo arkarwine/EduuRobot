@@ -123,7 +123,8 @@ class Database:
             chat_type TEXT,
             first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            chat_title TEXT
+            chat_title TEXT,
+            private_interacted INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS welcome_defaults(
@@ -205,6 +206,14 @@ class Database:
         await cursor.close()
         if "chat_lang" not in channel_columns:
             await conn.execute("ALTER TABLE channels ADD COLUMN chat_lang TEXT")
+
+        cursor = await conn.execute("PRAGMA table_info(chat_logs)")
+        chat_log_columns = {row[1] for row in await cursor.fetchall()}
+        await cursor.close()
+        if "private_interacted" not in chat_log_columns:
+            await conn.execute(
+                "ALTER TABLE chat_logs ADD COLUMN private_interacted INTEGER DEFAULT 0"
+            )
 
         await conn.execute(
             "UPDATE user_warns SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"

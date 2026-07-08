@@ -95,7 +95,8 @@ def ensure_target_schema(conn: sqlite3.Connection) -> None:
             chat_type TEXT,
             first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            chat_title TEXT
+            chat_title TEXT,
+            private_interacted INTEGER DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS autoreply_settings(
@@ -136,6 +137,9 @@ def ensure_target_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(chat_logs)")}
+    if "private_interacted" not in columns:
+        conn.execute("ALTER TABLE chat_logs ADD COLUMN private_interacted INTEGER DEFAULT 0")
 
 
 def clear_autoreply_target(target: sqlite3.Connection) -> None:
@@ -417,22 +421,30 @@ def upsert_chat_log(
     chat_id: int,
     chat_type: str,
     title: str,
+    *,
+    private_interacted: bool = False,
 ) -> bool:
     cursor = target.execute(
         """
-        INSERT OR IGNORE INTO chat_logs(chat_id, chat_type, chat_title)
-        VALUES (?, ?, ?)
+        INSERT OR IGNORE INTO chat_logs(chat_id, chat_type, chat_title, private_interacted)
+        VALUES (?, ?, ?, ?)
         """,
-        (chat_id, chat_type, title),
+        (chat_id, chat_type, title, int(private_interacted)),
     )
     inserted = cursor.rowcount > 0
     target.execute(
         """
         UPDATE chat_logs
-        SET chat_type = ?, chat_title = ?, last_seen = CURRENT_TIMESTAMP
+        SET chat_type = ?,
+            chat_title = ?,
+            private_interacted = CASE
+                WHEN ? = 1 THEN 1
+                ELSE private_interacted
+            END,
+            last_seen = CURRENT_TIMESTAMP
         WHERE chat_id = ?
         """,
-        (chat_type, title, chat_id),
+        (chat_type, title, int(private_interacted), chat_id),
     )
     return inserted
 
@@ -494,7 +506,13 @@ def migrate_chat_logs(
             title = chat_title(document, str(user_id))
             if ensure_user_row(target, user_id):
                 counts["users_table_rows"] += 1
-            if upsert_chat_log(target, user_id, "ChatType.PRIVATE", title):
+            if upsert_chat_log(
+                target,
+                user_id,
+                "ChatType.PRIVATE",
+                title,
+                private_interacted=bool(document.get("private_interacted")),
+            ):
                 counts["broadcast_user_targets"] += 1
 
     return counts

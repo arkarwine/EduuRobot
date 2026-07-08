@@ -14,14 +14,19 @@ from hydrogram.errors import BadRequest, FloodWait, Forbidden
 from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from config import LOG_CHAT, PREFIXES
-from eduu.database.chat_logs import get_all_chat_ids, get_chat_stats, log_chat
+from eduu.database.chat_logs import (
+    get_all_chat_ids,
+    get_chat_stats,
+    get_private_broadcast_chat_ids,
+    log_chat,
+)
 from eduu.utils import commands, sudofilter
 from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 
 BROADCAST_BATCH_SIZE = 10
-BROADCAST_BATCH_DELAY_SECONDS = 3.0
+BROADCAST_BATCH_DELAY_SECONDS = 0.5
 BROADCAST_PREVIEW_LIMIT = 700
 BROADCAST_PENDING_TTL = 15 * 60
 
@@ -50,7 +55,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
         preview_text = f"{preview_text[:BROADCAST_PREVIEW_LIMIT]}..."
 
     try:
-        chat_ids = await get_all_chat_ids()
+        chat_ids = await get_private_broadcast_chat_ids()
         chat_count = len(chat_ids)
         if chat_count == 0:
             await m.reply_text(s("broadcast_no_targets"))
