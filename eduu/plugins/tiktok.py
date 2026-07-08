@@ -113,7 +113,10 @@ def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, An
     )
     if not files:
         raise FileNotFoundError("yt-dlp did not create a media file.")
-    return files, info
+    videos = [path for path in files if path.suffix.casefold() in VIDEO_EXTENSIONS]
+    if not videos:
+        raise FileNotFoundError("yt-dlp did not create a video file.")
+    return videos, info
 
 
 def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
@@ -280,7 +283,14 @@ async def _send_downloaded_media(
             )
         return
 
-    path = max(videos or paths, key=lambda item: item.stat().st_size)
+    remaining = [
+        path
+        for path in paths
+        if path.suffix.casefold() not in AUDIO_EXTENSIONS | IMAGE_EXTENSIONS
+    ]
+    if not videos and not remaining:
+        raise FileNotFoundError("No video file was downloaded.")
+    path = max(videos or remaining, key=lambda item: item.stat().st_size)
     try:
         await c.send_video(
             chat_id=m.chat.id,
