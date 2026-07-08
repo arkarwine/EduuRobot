@@ -277,6 +277,10 @@ async def _send_photos(
             )
             return
 
+    if m.chat.type == ChatType.PRIVATE:
+        await _send_photos_individually(c, m, paths, caption)
+        return
+
     try:
         for start in range(0, len(paths), MEDIA_GROUP_LIMIT):
             chunk = paths[start : start + MEDIA_GROUP_LIMIT]
@@ -292,8 +296,25 @@ async def _send_photos(
                 media=media,
                 reply_to_message_id=m.id if start == 0 else None,
             )
-    except RPCError:
-        for index, path in enumerate(paths):
+    except Exception:
+        await _send_photos_individually(c, m, paths, caption)
+
+
+async def _send_photos_individually(
+    c: Client,
+    m: Message,
+    paths: list[Path],
+    caption: str,
+) -> None:
+    for index, path in enumerate(paths):
+        try:
+            await c.send_photo(
+                chat_id=m.chat.id,
+                photo=str(path),
+                caption=caption if index == 0 else "",
+                reply_to_message_id=m.id if index == 0 else None,
+            )
+        except RPCError:
             await c.send_document(
                 chat_id=m.chat.id,
                 document=str(path),
