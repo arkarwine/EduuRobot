@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+from html import escape
 from time import time
 
 from hydrogram import Client, filters
@@ -49,10 +50,17 @@ async def welcome_format_message_help(c: Client, m: Message, s: Strings):
 
 def _message_media(src: Message) -> tuple[str | None, str | None, str | None]:
     if src.photo:
-        return src.caption or None, src.photo.file_id, "photo"
+        return _rich_text(src, caption=True), src.photo.file_id, "photo"
     if src.video:
-        return src.caption or None, src.video.file_id, "video"
-    return src.text or src.caption or None, None, None
+        return _rich_text(src, caption=True), src.video.file_id, "video"
+    return _rich_text(src) or _rich_text(src, caption=True), None, None
+
+
+def _rich_text(m: Message, *, caption: bool = False) -> str | None:
+    text = m.caption if caption else m.text
+    if text is None:
+        return None
+    return getattr(text, "html", None) or str(text)
 
 
 async def _preview_template(c: Client, m: Message, text: str | None, s: Strings) -> Message:
@@ -60,13 +68,13 @@ async def _preview_template(c: Client, m: Message, text: str | None, s: Strings)
         return await m.reply_text(s("welcome_set_success"))
     preview = text.replace("{profile_photo}", "").replace("{user_photo}", "").format(
         id=m.from_user.id,
-        username=m.from_user.username,
+        username=escape(m.from_user.username or ""),
         mention=m.from_user.mention,
-        first_name=m.from_user.first_name,
-        full_name=m.from_user.full_name,
-        name=m.from_user.first_name,
-        title=m.chat.title,
-        chat_title=m.chat.title,
+        first_name=escape(m.from_user.first_name or ""),
+        full_name=escape(m.from_user.full_name or ""),
+        name=escape(m.from_user.first_name or ""),
+        title=escape(m.chat.title or ""),
+        chat_title=escape(m.chat.title or ""),
         count=(await c.get_chat_members_count(m.chat.id)),
     )
     return await m.reply_text(preview)
@@ -116,13 +124,14 @@ async def _set_template_message(
     else:
         await set_goodbye(m.chat.id, message, media_file_id, media_type)
         success_key = "goodbye_set_success"
-    await sent.edit_text(s(success_key).format(chat_title=m.chat.title))
+    await sent.edit_text(s(success_key).format(chat_title=escape(m.chat.title or "")))
 
 
 def _command_text(m: Message) -> str:
-    if not m.text:
+    text = _rich_text(m)
+    if not text:
         return ""
-    parts = m.text.split(None, 1)
+    parts = text.split(None, 1)
     return parts[1].strip() if len(parts) > 1 else ""
 
 
@@ -132,19 +141,19 @@ def _template_from_command_or_reply(m: Message) -> str | None:
         return text
     if not m.reply_to_message:
         return None
-    return m.reply_to_message.text or m.reply_to_message.caption
+    return _rich_text(m.reply_to_message) or _rich_text(m.reply_to_message, caption=True)
 
 
 async def _preview_default_template(m: Message, text: str) -> Message:
     preview = text.replace("{profile_photo}", "").replace("{user_photo}", "").format(
         id=m.from_user.id,
-        username=m.from_user.username,
+        username=escape(m.from_user.username or ""),
         mention=m.from_user.mention,
-        first_name=m.from_user.first_name,
-        full_name=m.from_user.full_name,
-        name=m.from_user.first_name,
-        title=m.chat.title or "Test Chat",
-        chat_title=m.chat.title or "Test Chat",
+        first_name=escape(m.from_user.first_name or ""),
+        full_name=escape(m.from_user.full_name or ""),
+        name=escape(m.from_user.first_name or ""),
+        title=escape(m.chat.title or "Test Chat"),
+        chat_title=escape(m.chat.title or "Test Chat"),
         count=1,
     )
     return await m.reply_text(preview)
@@ -281,11 +290,11 @@ async def _send_template(
     )
     mention = ", ".join(user.mention for user in members)
     username = ", ".join(
-        f"@{user.username}" if user.username else user.mention for user in members
+        f"@{escape(user.username)}" if user.username else user.mention for user in members
     )
     user_id = ", ".join(str(user.id) for user in members)
-    full_name = ", ".join(f"{user.first_name} " + (user.last_name or "") for user in members)
-    first_name = ", ".join(user.first_name for user in members)
+    full_name = ", ".join(escape(user.full_name or "") for user in members)
+    first_name = ", ".join(escape(user.first_name or "") for user in members)
 
     text = template.format(
         id=user_id,
@@ -294,8 +303,8 @@ async def _send_template(
         first_name=first_name,
         full_name=full_name,
         name=full_name,
-        title=chat_title,
-        chat_title=chat_title,
+        title=escape(chat_title or ""),
+        chat_title=escape(chat_title or ""),
         count=count,
     )
     text, buttons = button_parser(text)
@@ -465,7 +474,7 @@ async def get_default_goodbye_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def enable_welcome_message(c: Client, m: Message, s: Strings):
     await toggle_welcome(m.chat.id, True)
-    await m.reply_text(s("welcome_mode_enable").format(chat_title=m.chat.title))
+    await m.reply_text(s("welcome_mode_enable").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command("welcome off", PREFIXES) & filters.group)
@@ -473,7 +482,7 @@ async def enable_welcome_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def disable_welcome_message(c: Client, m: Message, s: Strings):
     await toggle_welcome(m.chat.id, False)
-    await m.reply_text(s("welcome_mode_disable").format(chat_title=m.chat.title))
+    await m.reply_text(s("welcome_mode_disable").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command("goodbye on", PREFIXES) & filters.group)
@@ -481,7 +490,7 @@ async def disable_welcome_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def enable_goodbye_message(c: Client, m: Message, s: Strings):
     await toggle_goodbye(m.chat.id, True)
-    await m.reply_text(s("goodbye_mode_enable").format(chat_title=m.chat.title))
+    await m.reply_text(s("goodbye_mode_enable").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command("goodbye off", PREFIXES) & filters.group)
@@ -489,7 +498,7 @@ async def enable_goodbye_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def disable_goodbye_message(c: Client, m: Message, s: Strings):
     await toggle_goodbye(m.chat.id, False)
-    await m.reply_text(s("goodbye_mode_disable").format(chat_title=m.chat.title))
+    await m.reply_text(s("goodbye_mode_disable").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command(["resetwelcome", "clearwelcome"], PREFIXES) & filters.group)
@@ -497,7 +506,7 @@ async def disable_goodbye_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def reset_welcome_message(c: Client, m: Message, s: Strings):
     await set_welcome(m.chat.id, None, None, None)
-    await m.reply_text(s("welcome_reset").format(chat_title=m.chat.title))
+    await m.reply_text(s("welcome_reset").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command(["resetgoodbye", "cleargoodbye"], PREFIXES) & filters.group)
@@ -505,7 +514,7 @@ async def reset_welcome_message(c: Client, m: Message, s: Strings):
 @use_chat_lang
 async def reset_goodbye_message(c: Client, m: Message, s: Strings):
     await set_goodbye(m.chat.id, None, None, None)
-    await m.reply_text(s("goodbye_reset").format(chat_title=m.chat.title))
+    await m.reply_text(s("goodbye_reset").format(chat_title=escape(m.chat.title or "")))
 
 
 @Client.on_message(filters.command("resetdefaultwelcome", PREFIXES) & sudofilter)
