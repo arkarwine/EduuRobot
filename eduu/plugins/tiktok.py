@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import subprocess
@@ -15,15 +16,16 @@ from typing import Any
 from hydrogram import Client, StopPropagation, filters
 from hydrogram.enums import ChatType, MessageEntityType
 from hydrogram.errors import RPCError
-from hydrogram.types import ChatPrivileges, InputMediaPhoto, Message
+from hydrogram.types import ChatPrivileges, Message
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import PREFIXES
+from config import PREFIXES, TOKEN
 from eduu.database.tiktok import get_tiktok_autodl, set_tiktok_autodl
-from eduu.utils import check_perms, commands
+from eduu.utils import check_perms, commands, http
 from eduu.utils.localization import Strings, use_chat_lang
 
+BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 TIKTOK_RE = re.compile(
     r"(?:https?://)?(?:www\.|m\.|vm\.|vt\.)?tiktok\.com/[^\s<>()]+",
     re.IGNORECASE,
@@ -277,27 +279,62 @@ async def _send_photos(
             )
             return
 
-    if m.chat.type == ChatType.PRIVATE:
-        await _send_photos_individually(c, m, paths, caption)
-        return
-
     try:
         for start in range(0, len(paths), MEDIA_GROUP_LIMIT):
             chunk = paths[start : start + MEDIA_GROUP_LIMIT]
-            media = [
-                InputMediaPhoto(
-                    media=str(path),
-                    caption=caption if start == 0 and index == 0 else "",
-                )
-                for index, path in enumerate(chunk)
-            ]
-            await c.send_media_group(
-                chat_id=m.chat.id,
-                media=media,
+            await _send_photo_album_via_bot_api(
+                m,
+                chunk,
+                caption if start == 0 else "",
                 reply_to_message_id=m.id if start == 0 else None,
             )
     except Exception:
         await _send_photos_individually(c, m, paths, caption)
+
+
+async def _send_photo_album_via_bot_api(
+    m: Message,
+    paths: list[Path],
+    caption: str,
+    *,
+    reply_to_message_id: int | None,
+) -> None:
+    media = []
+    files = {}
+    handles = []
+    try:
+        for index, path in enumerate(paths):
+            field = f"photo{index}"
+            media_item = {
+                "type": "photo",
+                "media": f"attach://{field}",
+            }
+            if index == 0 and caption:
+                media_item["caption"] = caption
+                media_item["parse_mode"] = "HTML"
+            media.append(media_item)
+            handle = path.open("rb")
+            handles.append(handle)
+            files[field] = (path.name, handle)
+
+        data: dict[str, str | int] = {
+            "chat_id": m.chat.id,
+            "media": json.dumps(media),
+        }
+        if reply_to_message_id is not None:
+            data["reply_to_message_id"] = reply_to_message_id
+
+        response = await http.post(
+            f"{BOT_API_URL}/sendMediaGroup",
+            data=data,
+            files=files,
+        )
+        result = response.json()
+        if not result.get("ok"):
+            raise RuntimeError(result.get("description", "sendMediaGroup failed"))
+    finally:
+        for handle in handles:
+            handle.close()
 
 
 async def _send_photos_individually(
