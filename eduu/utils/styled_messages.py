@@ -14,8 +14,12 @@ BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 MEDIA_CAPTION_LIMIT = 1024
 
 
-def button_to_dict(button: InlineKeyboardButton) -> dict[str, Any]:
+def button_to_dict(button: InlineKeyboardButton, *, styled: bool = True) -> dict[str, Any]:
     data: dict[str, Any] = {"text": button.text}
+    if styled and (custom_emoji_text := getattr(button, "custom_emoji_text", None)):
+        data["text"] = custom_emoji_text
+    if styled and (custom_emoji_id := getattr(button, "icon_custom_emoji_id", None)):
+        data["icon_custom_emoji_id"] = custom_emoji_id
     for field in (
         "callback_data",
         "url",
@@ -36,7 +40,7 @@ def _markup_to_dict(markup: InlineKeyboardMarkup | None) -> dict[str, Any] | Non
         return None
     return {
         "inline_keyboard": [
-            [button_to_dict(button) for button in row]
+            [button_to_dict(button, styled=True) for button in row]
             for row in markup.inline_keyboard
         ]
     }
@@ -49,7 +53,7 @@ def _unstyled_markup(markup: InlineKeyboardMarkup | None) -> InlineKeyboardMarku
     for row in markup.inline_keyboard:
         clean_row = []
         for button in row:
-            data = button_to_dict(button)
+            data = button_to_dict(button, styled=False)
             data.pop("style", None)
             clean_row.append(InlineKeyboardButton(**data))
         rows.append(clean_row)
