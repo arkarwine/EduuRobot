@@ -17,6 +17,7 @@ from config import OWNER_URL, PREFIXES, START_IMG_URL, UPDATES_CHANNEL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
 from eduu.utils.buttons import styled_button
+from eduu.utils.custom_emoji import with_custom_emoji
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send_styled_text
 
@@ -134,7 +135,7 @@ async def get_group_owner(c: Client, m: Message, s: Strings):
                 owner_name=member.user.first_name,
                 owner_mention=member.user.mention(),
             )
-            await m.reply_text(owner_info)
+            await m.reply_text(with_custom_emoji(owner_info))
             return
     await m.reply_text(s("owner_not_found"))
 

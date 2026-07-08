@@ -9,6 +9,7 @@ from hydrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import TOKEN
 from eduu.utils import http
+from eduu.utils.custom_emoji import with_custom_emoji
 
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 MEDIA_CAPTION_LIMIT = 1024
@@ -69,6 +70,7 @@ async def send_styled_text(
     text: str,
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
+    text = with_custom_emoji(text)
     try:
         await _request(
             "sendMessage",
@@ -90,6 +92,7 @@ async def edit_styled_text(
     *,
     disable_web_page_preview: bool = False,
 ) -> None:
+    text = with_custom_emoji(text)
     try:
         if message.media and len(text) > MEDIA_CAPTION_LIMIT:
             await _request(
@@ -150,6 +153,7 @@ async def send_styled_photo(
     caption: str,
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
+    caption = with_custom_emoji(caption)
     try:
         await _request(
             "sendPhoto",

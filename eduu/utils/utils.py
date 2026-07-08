@@ -26,6 +26,7 @@ from hydrogram.types import (
 )
 
 from config import SUDOERS
+from eduu.utils.custom_emoji import with_custom_emoji
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -350,7 +351,7 @@ class BotCommands:
                 f"<code>{escape(cmd['usage'])}</code>\n\n"
             )
 
-        return res
+        return with_custom_emoji(res)
 
     def get_bot_commands(
         self,
