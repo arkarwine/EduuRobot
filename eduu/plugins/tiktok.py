@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import re
-from html import escape, unescape
+import subprocess
+import sys
+from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -19,7 +20,7 @@ from yt_dlp.utils import DownloadError
 
 from config import PREFIXES
 from eduu.database.tiktok import get_tiktok_autodl, set_tiktok_autodl
-from eduu.utils import check_perms, commands, http
+from eduu.utils import check_perms, commands
 from eduu.utils.localization import Strings, use_chat_lang
 
 TIKTOK_RE = re.compile(
@@ -29,19 +30,10 @@ TIKTOK_RE = re.compile(
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
 MEDIA_GROUP_LIMIT = 10
-TIKTOK_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
-UNIVERSAL_DATA_RE = re.compile(
-    r'<script[^>]+id=["\']__UNIVERSAL_DATA_FOR_REHYDRATION__["\'][^>]*>'
-    r"(?P<data>.*?)</script>",
-    re.DOTALL,
-)
-SIGI_STATE_RE = re.compile(
-    r'<script[^>]+id=["\']SIGI_STATE["\'][^>]*>(?P<data>.*?)</script>',
-    re.DOTALL,
-)
+
+
+class GalleryDownloadError(RuntimeError):
+    pass
 
 
 def _command_arg(m: Message) -> str:
@@ -82,6 +74,10 @@ def _first_tiktok_url(*messages: Message | None, extra_text: str = "") -> str | 
     return None
 
 
+def _is_tiktok_photo_url(url: str) -> bool:
+    return "/photo/" in url.casefold()
+
+
 def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
     output = str(Path(directory) / "%(id).80s-%(autonumber)03d.%(ext)s")
     options = {
@@ -108,150 +104,39 @@ def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, An
     return files, info
 
 
-async def _download_tiktok_photos(url: str, directory: str) -> tuple[list[Path], dict[str, Any]] | None:
-    response = await http.get(
+def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
+    command = [
+        sys.executable,
+        "-m",
+        "gallery_dl",
+        "--no-part",
+        "-D",
+        directory,
         url,
-        headers={
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "User-Agent": TIKTOK_USER_AGENT,
-        },
+    ]
+    completed = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=180,
     )
-    response.raise_for_status()
-    data = _extract_tiktok_json(response.text)
-    if not data:
-        return None
+    if completed.returncode != 0:
+        error = completed.stderr.strip() or completed.stdout.strip() or "gallery-dl failed"
+        raise GalleryDownloadError(error[-500:])
 
-    urls = _extract_tiktok_photo_urls(data)
-    if not urls:
-        return None
-
-    paths = []
-    for index, image_url in enumerate(urls, start=1):
-        image_response = await http.get(
-            image_url,
-            headers={"Referer": url, "User-Agent": TIKTOK_USER_AGENT},
-        )
-        image_response.raise_for_status()
-        ext = _image_extension(image_url, image_response.headers.get("content-type", ""))
-        path = Path(directory) / f"tiktok-photo-{index:02d}{ext}"
-        path.write_bytes(image_response.content)
-        paths.append(path)
-
-    return paths, _extract_tiktok_photo_info(data)
-
-
-def _extract_tiktok_json(html: str) -> dict[str, Any] | None:
-    for pattern in (UNIVERSAL_DATA_RE, SIGI_STATE_RE):
-        match = pattern.search(html)
-        if not match:
-            continue
-        try:
-            return json.loads(unescape(match.group("data")).strip())
-        except json.JSONDecodeError:
-            continue
-    return None
-
-
-def _extract_tiktok_photo_urls(data: dict[str, Any]) -> list[str]:
-    urls = []
-    for image in _iter_tiktok_photo_images(data):
-        url = _best_image_url(image)
-        if url and url not in urls:
-            urls.append(url)
-    return urls
-
-
-def _iter_tiktok_photo_images(value: Any):
-    if isinstance(value, dict):
-        for key in ("imagePost", "image_post_info"):
-            image_post = value.get(key)
-            if isinstance(image_post, dict):
-                images = image_post.get("images")
-                if isinstance(images, list):
-                    yield from images
-        for item in value.values():
-            yield from _iter_tiktok_photo_images(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _iter_tiktok_photo_images(item)
-
-
-def _best_image_url(value: Any) -> str | None:
-    if isinstance(value, dict):
-        for key in ("urlList", "url_list"):
-            urls = value.get(key)
-            if isinstance(urls, list):
-                for url in urls:
-                    if _looks_like_tiktok_image_url(url):
-                        return url
-        for key in ("imageURL", "image_url", "displayImage", "display_image"):
-            url = _best_image_url(value.get(key))
-            if url:
-                return url
-        for item in value.values():
-            url = _best_image_url(item)
-            if url:
-                return url
-    elif isinstance(value, list):
-        for item in value:
-            url = _best_image_url(item)
-            if url:
-                return url
-    elif _looks_like_tiktok_image_url(value):
-        return value
-    return None
-
-
-def _looks_like_tiktok_image_url(value: Any) -> bool:
-    if not isinstance(value, str) or not value.startswith(("http://", "https://")):
-        return False
-    lower = value.casefold()
-    return (
-        "tiktokcdn" in lower
-        and not any(marker in lower for marker in ("-music-", ".mp3", ".m4a", ".mp4"))
-        and any(marker in lower for marker in ("image", "tos-", ".jpeg", ".jpg", ".webp", ".png"))
+    files = sorted(
+        (
+            path
+            for path in Path(directory).rglob("*")
+            if path.is_file() and not path.name.endswith((".part", ".ytdl"))
+        ),
+        key=lambda path: path.name,
     )
+    if not files:
+        raise GalleryDownloadError("gallery-dl did not create a media file.")
 
-
-def _extract_tiktok_photo_info(data: dict[str, Any]) -> dict[str, Any]:
-    item = _find_tiktok_item(data) or {}
-    author = item.get("author") if isinstance(item.get("author"), dict) else {}
-    return {
-        "title": item.get("desc") or item.get("title") or "TikTok photos",
-        "description": item.get("desc") or "",
-        "uploader": author.get("uniqueId") or author.get("nickname") or "",
-    }
-
-
-def _find_tiktok_item(value: Any) -> dict[str, Any] | None:
-    if isinstance(value, dict):
-        if (
-            isinstance(value.get("author"), dict)
-            and ("desc" in value or "imagePost" in value or "image_post_info" in value)
-        ):
-            return value
-        for item in value.values():
-            found = _find_tiktok_item(item)
-            if found:
-                return found
-    elif isinstance(value, list):
-        for item in value:
-            found = _find_tiktok_item(item)
-            if found:
-                return found
-    return None
-
-
-def _image_extension(url: str, content_type: str) -> str:
-    lower_type = content_type.casefold()
-    if "png" in lower_type:
-        return ".png"
-    if "webp" in lower_type:
-        return ".webp"
-    if "jpeg" in lower_type or "jpg" in lower_type:
-        return ".jpg"
-    suffix = Path(url.split("?", 1)[0]).suffix.casefold()
-    return suffix if suffix in IMAGE_EXTENSIONS else ".jpg"
+    return files, {"title": "TikTok slideshow"}
 
 
 def _caption(info: dict[str, Any], source_url: str) -> str:
@@ -268,14 +153,13 @@ async def _download_and_send(c: Client, m: Message, url: str, s: Strings) -> boo
     status = await m.reply_text(s("tiktok_downloading"))
     try:
         with TemporaryDirectory(prefix="eduu_tiktok_") as directory:
-            photo_result = await _download_tiktok_photos(url, directory)
-            if photo_result:
-                paths, info = photo_result
+            if _is_tiktok_photo_url(url):
+                paths, info = await asyncio.to_thread(_download_tiktok_slideshow, url, directory)
             else:
                 paths, info = await asyncio.to_thread(_download_tiktok, url, directory)
             caption = _caption(info, url)
             await _send_downloaded_media(c, m, paths, caption)
-    except DownloadError as e:
+    except (DownloadError, GalleryDownloadError) as e:
         await status.edit_text(s("tiktok_download_failed").format(error=escape(str(e)[:250])))
         return False
     except Exception as e:
