@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from html import escape
@@ -34,6 +35,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm"}
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".aac", ".ogg", ".opus"}
 MEDIA_GROUP_LIMIT = 10
+GALLERY_DL_OUTPUT_DIR = Path("gallery-dl")
 
 
 class GalleryDownloadError(RuntimeError):
@@ -82,6 +84,11 @@ def _is_tiktok_photo_url(url: str) -> bool:
     return "/photo/" in url.casefold()
 
 
+def _tiktok_post_id(url: str) -> str | None:
+    match = re.search(r"/(?:photo|video)/(\d+)", url)
+    return match.group(1) if match else None
+
+
 def _download_tiktok(url: str, directory: str) -> tuple[list[Path], dict[str, Any]]:
     output = str(Path(directory) / "%(id).80s-%(autonumber)03d.%(ext)s")
     options = {
@@ -112,6 +119,7 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
     cache_dir = Path(directory) / ".cache"
     env = os.environ.copy()
     env["XDG_CACHE_HOME"] = str(cache_dir)
+    post_id = _tiktok_post_id(url)
     command = [
         sys.executable,
         "-m",
@@ -122,19 +130,11 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
         command,
         check=False,
         capture_output=True,
-        cwd=directory,
         env=env,
         text=True,
         timeout=180,
     )
-    files = sorted(
-        (
-            path
-            for path in Path(directory).rglob("*")
-            if path.is_file() and not path.name.endswith((".part", ".ytdl"))
-        ),
-        key=lambda path: path.name,
-    )
+    files = _collect_gallery_dl_files(post_id, Path(directory))
     if not files:
         if completed.returncode != 0:
             error = completed.stderr.strip() or completed.stdout.strip() or "gallery-dl failed"
@@ -143,6 +143,48 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
 
     selected_files = _ordered_slideshow_files(files)
     return selected_files, _gallery_info(selected_files)
+
+
+def _collect_gallery_dl_files(post_id: str | None, target_dir: Path) -> list[Path]:
+    source_files = sorted(
+        (
+            path
+            for path in GALLERY_DL_OUTPUT_DIR.rglob("*")
+            if path.is_file()
+            and not path.name.endswith((".part", ".ytdl"))
+            and (post_id is None or post_id in path.name)
+        ),
+        key=lambda path: path.name,
+    )
+    copied_files = []
+    for source in source_files:
+        target = target_dir / source.name
+        shutil.copy2(source, target)
+        copied_files.append(target)
+        try:
+            source.unlink()
+        except OSError:
+            pass
+    _cleanup_empty_gallery_dirs()
+    return copied_files
+
+
+def _cleanup_empty_gallery_dirs() -> None:
+    if not GALLERY_DL_OUTPUT_DIR.exists():
+        return
+    for directory in sorted(
+        (path for path in GALLERY_DL_OUTPUT_DIR.rglob("*") if path.is_dir()),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+    try:
+        GALLERY_DL_OUTPUT_DIR.rmdir()
+    except OSError:
+        pass
 
 
 def _ordered_slideshow_files(files: list[Path]) -> list[Path]:
