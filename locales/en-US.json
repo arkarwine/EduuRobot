@@ -173,6 +173,7 @@
   "cmds_category_admin_warns": "<tg-emoji emoji-id=\"6032636795387121097\">⚠️</tg-emoji> Warnings",
   "cmds_category_remote_moderation": "<tg-emoji emoji-id=\"5776233299424843260\">🌐</tg-emoji> Remote moderation",
   "cmds_category_ai": "🤖 AI",
+  "cmds_category_downloads": "<tg-emoji emoji-id=\"5327982530702359565\">⬇️</tg-emoji> Downloads",
   "cmds_category_general": "✨ General",
   "cmds_category_tools": "<tg-emoji emoji-id=\"6021792097454002931\">🔧</tg-emoji> Tools",
   "cmds_list_category_title": "Commands in the <b>{category}</b> category:",

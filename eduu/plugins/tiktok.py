@@ -176,4 +176,4 @@ async def tiktok_auto_download(c: Client, m: Message, s: Strings):
     raise StopPropagation
 
 
-commands.add_command("tiktok", "tools")
+commands.add_command("tiktok", "downloads")

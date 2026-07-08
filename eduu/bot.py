@@ -21,7 +21,7 @@ from . import __commit__, __version_number__
 logger = logging.getLogger(__name__)
 
 NATIVE_COMMAND_LIMIT = 20
-NATIVE_COMMAND_CATEGORIES = ("general", "tools", "ai")
+NATIVE_COMMAND_CATEGORIES = ("general", "tools", "downloads", "ai")
 MAIN_NATIVE_COMMANDS = (
     "start",
     "stats",

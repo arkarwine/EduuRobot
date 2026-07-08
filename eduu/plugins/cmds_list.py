@@ -19,6 +19,7 @@ from eduu.utils.styled_messages import edit_styled_text, send_styled_text
 CATEGORY_ORDER = (
     "ai",
     "general",
+    "downloads",
     "admin_autoreply",
     "admin_antispam",
     "mentions",
