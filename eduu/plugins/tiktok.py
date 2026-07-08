@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import re
+import requests
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,7 @@ from yt_dlp.utils import DownloadError
 
 from config import PREFIXES, TOKEN
 from eduu.database.tiktok import get_tiktok_autodl, set_tiktok_autodl
-from eduu.utils import check_perms, commands, http
+from eduu.utils import check_perms, commands
 from eduu.utils.localization import Strings, use_chat_lang
 
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
@@ -321,20 +322,18 @@ async def _send_photos(
             )
             return
 
-    try:
-        for start in range(0, len(paths), MEDIA_GROUP_LIMIT):
-            chunk = paths[start : start + MEDIA_GROUP_LIMIT]
-            await _send_photo_album_via_bot_api(
-                m,
-                chunk,
-                caption if start == 0 else "",
-                reply_to_message_id=m.id if start == 0 else None,
-            )
-    except Exception:
-        await _send_photos_individually(c, m, paths, caption)
+    for start in range(0, len(paths), MEDIA_GROUP_LIMIT):
+        chunk = paths[start : start + MEDIA_GROUP_LIMIT]
+        await asyncio.to_thread(
+            _send_photo_album_via_bot_api,
+            m,
+            chunk,
+            caption if start == 0 else "",
+            reply_to_message_id=m.id if start == 0 else None,
+        )
 
 
-async def _send_photo_album_via_bot_api(
+def _send_photo_album_via_bot_api(
     m: Message,
     paths: list[Path],
     caption: str,
@@ -366,10 +365,11 @@ async def _send_photo_album_via_bot_api(
         if reply_to_message_id is not None:
             data["reply_to_message_id"] = reply_to_message_id
 
-        response = await http.post(
+        response = requests.post(
             f"{BOT_API_URL}/sendMediaGroup",
             data=data,
             files=files,
+            timeout=60,
         )
         result = response.json()
         if not result.get("ok"):

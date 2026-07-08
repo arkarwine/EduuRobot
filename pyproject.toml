@@ -15,6 +15,7 @@ dependencies = [
   "Pillow>=12.2.0,<13.0.0",
   "pytio",
   "regex",
+  "requests>=2.32.0,<3.0.0",
   "speedtest-cli",
   "tgcrypto",
   # Using uvloop to increase general speed and stability. Ignored under Windows
