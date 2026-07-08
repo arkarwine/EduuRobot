@@ -109,15 +109,13 @@ def _download_tiktok_slideshow(url: str, directory: str) -> tuple[list[Path], di
         sys.executable,
         "-m",
         "gallery_dl",
-        "--no-part",
-        "-D",
-        directory,
         url,
     ]
     completed = subprocess.run(
         command,
         check=False,
         capture_output=True,
+        cwd=directory,
         text=True,
         timeout=180,
     )
