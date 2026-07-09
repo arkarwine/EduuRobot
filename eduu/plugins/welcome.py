@@ -14,16 +14,19 @@ from hydrogram.types import ChatMemberUpdated, ChatPrivileges, InlineKeyboardMar
 from config import PREFIXES
 from eduu.database.welcome import (
     get_default_template,
+    get_greeting_delete_seconds,
     get_goodbye,
     get_welcome,
     reset_default_template,
     set_default_template,
+    set_greeting_delete_seconds,
     set_goodbye,
     set_welcome,
     toggle_goodbye,
     toggle_welcome,
 )
 from eduu.utils import button_parser, commands, get_format_keys, sudofilter
+from eduu.utils.custom_emoji import render_custom_emoji_text
 from eduu.utils.decorators import require_admin, stop_here
 from eduu.utils.localization import Strings, use_chat_lang
 
@@ -31,7 +34,6 @@ logger = logging.getLogger(__name__)
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 MEMBER_STATUSES = {"member", "administrator", "owner"}
-GREETING_DELETE_DELAY = 10
 PROFILE_PHOTO_TOKENS = {"{profile_photo}", "{user_photo}"}
 _recent_member_updates: dict[tuple[int, int, str], float] = {}
 
@@ -80,8 +82,8 @@ async def _preview_template(c: Client, m: Message, text: str | None, s: Strings)
     return await m.reply_text(preview)
 
 
-async def _delete_after(message: Message | None, delay: int = GREETING_DELETE_DELAY) -> None:
-    if not message:
+async def _delete_after(message: Message | None, delay: int) -> None:
+    if not message or delay <= 0:
         return
     await asyncio.sleep(delay)
     try:
@@ -307,6 +309,7 @@ async def _send_template(
         chat_title=escape(chat_title or ""),
         count=count,
     )
+    text = render_custom_emoji_text(text)
     text, buttons = button_parser(text)
     if not text.strip():
         text = mention
@@ -360,7 +363,8 @@ async def _send_template(
             parse_mode=ParseMode.HTML,
         )
 
-    asyncio.create_task(_delete_after(sent))
+    delete_seconds = await get_greeting_delete_seconds(chat_id)
+    asyncio.create_task(_delete_after(sent, delete_seconds))
 
 
 @Client.on_chat_member_updated()
@@ -501,6 +505,32 @@ async def disable_goodbye_message(c: Client, m: Message, s: Strings):
     await m.reply_text(s("goodbye_mode_disable").format(chat_title=escape(m.chat.title or "")))
 
 
+@Client.on_message(filters.command("welcomedelete", PREFIXES) & filters.group)
+@require_admin(ChatPrivileges(can_change_info=True))
+@use_chat_lang
+async def set_welcome_delete_delay(c: Client, m: Message, s: Strings):
+    if len(m.command) == 1 or m.command[1].casefold() == "status":
+        seconds = await get_greeting_delete_seconds(m.chat.id)
+        state = s("general_disabled") if seconds <= 0 else f"{seconds}s"
+        await m.reply_text(s("welcome_delete_status").format(state=state))
+        return
+
+    value = m.command[1].casefold()
+    if value in {"off", "disable", "disabled", "none", "0"}:
+        seconds = 0
+    elif value.isdigit():
+        seconds = min(max(int(value), 1), 86400)
+    else:
+        await m.reply_text(s("welcome_delete_usage"))
+        return
+
+    await set_greeting_delete_seconds(m.chat.id, seconds)
+    if seconds <= 0:
+        await m.reply_text(s("welcome_delete_disabled"))
+    else:
+        await m.reply_text(s("welcome_delete_updated").format(seconds=seconds))
+
+
 @Client.on_message(filters.command(["resetwelcome", "clearwelcome"], PREFIXES) & filters.group)
 @require_admin(ChatPrivileges(can_change_info=True))
 @use_chat_lang
@@ -539,6 +569,7 @@ for command in (
     "getdefaultwelcome",
     "resetdefaultwelcome",
     "welcome",
+    "welcomedelete",
     "welcomeformat",
     "resetgoodbye",
     "setgoodbye",

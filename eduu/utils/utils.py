@@ -130,7 +130,8 @@ COMMAND_USAGES = {
     "stop": "/stop",
     "tban": "/tban <duration> as a reply",
     "tmute": "/tmute <duration> as a reply",
-    "tiktok": "/tiktok <url|on|off|status> or reply with /tiktok",
+    "tiktok": "/tiktok <url> or reply with /tiktok",
+    "tiktokautodl": "/tiktokautodl <on|off|status>",
     "tr": "/tr [language] <text> or reply with /tr [language]",
     "unban": "/unban <user> [reason] or reply with /unban [reason]",
     "unmute": "/unmute <user> [reason] or reply with /unmute [reason]",
@@ -142,6 +143,7 @@ COMMAND_USAGES = {
     "goodbye": "/goodbye <on|off>",
     "goodbyeformat": "/goodbyeformat",
     "welcome": "/welcome <on|off>",
+    "welcomedelete": "/welcomedelete <seconds|off|status>",
     "welcomeformat": "/welcomeformat",
 }
 

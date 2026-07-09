@@ -9,6 +9,7 @@ from hydrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import TOKEN
 from eduu.utils import http
+from .custom_emoji import custom_emoji_enabled, render_custom_emoji_text
 
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
 MEDIA_CAPTION_LIMIT = 1024
@@ -16,9 +17,17 @@ MEDIA_CAPTION_LIMIT = 1024
 
 def button_to_dict(button: InlineKeyboardButton, *, styled: bool = True) -> dict[str, Any]:
     data: dict[str, Any] = {"text": button.text}
-    if styled and (custom_emoji_text := getattr(button, "custom_emoji_text", None)):
+    if (
+        styled
+        and custom_emoji_enabled()
+        and (custom_emoji_text := getattr(button, "custom_emoji_text", None))
+    ):
         data["text"] = custom_emoji_text
-    if styled and (custom_emoji_id := getattr(button, "icon_custom_emoji_id", None)):
+    if (
+        styled
+        and custom_emoji_enabled()
+        and (custom_emoji_id := getattr(button, "icon_custom_emoji_id", None))
+    ):
         data["icon_custom_emoji_id"] = custom_emoji_id
     for field in (
         "callback_data",
@@ -73,6 +82,7 @@ async def send_styled_text(
     text: str,
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
+    text = render_custom_emoji_text(text)
     try:
         await _request(
             "sendMessage",
@@ -94,6 +104,7 @@ async def edit_styled_text(
     *,
     disable_web_page_preview: bool = False,
 ) -> None:
+    text = render_custom_emoji_text(text)
     try:
         if message.media and len(text) > MEDIA_CAPTION_LIMIT:
             await _request(
@@ -154,6 +165,7 @@ async def send_styled_photo(
     caption: str,
     reply_markup: InlineKeyboardMarkup,
 ) -> None:
+    caption = render_custom_emoji_text(caption)
     try:
         await _request(
             "sendPhoto",

@@ -34,13 +34,6 @@ def _env_int(name: str, default: int) -> int:
     return int(value)
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    value = os.environ.get(name)
-    if value is None or value == "":
-        return default
-    return value.casefold() in {"1", "true", "yes", "y", "on", "enable", "enabled"}
-
-
 def _env_list(name: str, default: list) -> list:
     value = os.environ.get(name)
     if value is None or value == "":
@@ -127,17 +120,9 @@ START_IMG_URL: str = _env_str("START_IMG_URL", "")
 # Default exact words treated as spam when anti-spam is enabled
 SPAM_FILTER_WORDS: List[str] = _env_list("SPAM_FILTER_WORDS", ["bio"])
 
-# Feature flags
-# When disabled, the related commands, menu category, and passive handlers are not loaded.
-AUTO_REPLY_ENABLED: bool = _env_bool("AUTO_REPLY_ENABLED", True)
-AUTO_DOWNLOAD_ENABLED: bool = _env_bool("AUTO_DOWNLOAD_ENABLED", True)
-
 # List of disabled plugins
+# Example: DISABLED_PLUGINS=ai,autoreply,tiktok
 DISABLED_PLUGINS: List[str] = _env_list("DISABLED_PLUGINS", [])
 
 if not GEMINI_API_KEY:
     DISABLED_PLUGINS.append("ai")
-if not AUTO_REPLY_ENABLED:
-    DISABLED_PLUGINS.append("autoreply")
-if not AUTO_DOWNLOAD_ENABLED:
-    DISABLED_PLUGINS.append("tiktok")

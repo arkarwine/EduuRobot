@@ -12,6 +12,7 @@ from hydrogram.types import Message
 
 from config import PREFIXES, TOKEN
 from eduu.utils import commands, http
+from eduu.utils.custom_emoji import render_custom_emoji_text
 from eduu.utils.localization import Strings, use_chat_lang
 
 BOT_API_URL = f"https://api.telegram.org/bot{TOKEN}"
@@ -126,6 +127,7 @@ async def _reply_chunks(m: Message, text: str) -> None:
 
 
 async def _send_html_reply(m: Message, text: str) -> None:
+    text = render_custom_emoji_text(text)
     response = await http.post(
         f"{BOT_API_URL}/sendMessage",
         json={

@@ -14,6 +14,7 @@ from hydrogram.enums import ChatType
 from hydrogram.types import CallbackQuery, ChatMemberUpdated, InlineQuery, Message
 
 from eduu.database.localization import get_db_lang
+from .custom_emoji import render_custom_emoji_text
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
@@ -74,7 +75,7 @@ def get_locale_string(
         string = langdict[language].get(key)
 
     # return and fallback if nullish
-    return string or langdict[default_language].get(key) or key
+    return render_custom_emoji_text(string or langdict[default_language].get(key) or key)
 
 
 Strings = Callable[[str], str]

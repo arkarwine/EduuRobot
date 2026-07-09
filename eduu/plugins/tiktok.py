@@ -416,34 +416,36 @@ async def _send_photos_individually(
 @use_chat_lang
 async def tiktok_command(c: Client, m: Message, s: Strings):
     arg = _command_arg(m)
-    lowered = arg.casefold()
-
-    if lowered in {"on", "off", "status"}:
-        if not m.chat or m.chat.type == ChatType.PRIVATE:
-            await m.reply_text(s("tiktok_autodl_group_only"))
-            return
-        if lowered == "status":
-            enabled = await get_tiktok_autodl(m.chat.id)
-            await m.reply_text(
-                s("tiktok_autodl_status").format(
-                    state=s("general_enabled") if enabled else s("general_disabled")
-                )
-            )
-            return
-        if not await check_perms(m, ChatPrivileges(can_change_info=True), True, s):
-            return
-        enabled = lowered == "on"
-        await set_tiktok_autodl(m.chat.id, enabled)
-        await m.reply_text(
-            s("tiktok_autodl_enabled" if enabled else "tiktok_autodl_disabled")
-        )
-        return
-
     url = _first_tiktok_url(m, m.reply_to_message, extra_text=arg)
     if not url:
         await m.reply_text(s("tiktok_usage"))
         return
     await _download_and_send(c, m, url, s)
+
+
+@Client.on_message(filters.command("tiktokautodl", PREFIXES))
+@use_chat_lang
+async def tiktok_autodl_command(c: Client, m: Message, s: Strings):
+    arg = _command_arg(m).casefold()
+    if not m.chat or m.chat.type == ChatType.PRIVATE:
+        await m.reply_text(s("tiktok_autodl_group_only"))
+        return
+    if arg in {"", "status"}:
+        enabled = await get_tiktok_autodl(m.chat.id)
+        await m.reply_text(
+            s("tiktok_autodl_status").format(
+                state=s("general_enabled") if enabled else s("general_disabled")
+            )
+        )
+        return
+    if arg not in {"on", "off"}:
+        await m.reply_text(s("tiktok_autodl_usage"))
+        return
+    if not await check_perms(m, ChatPrivileges(can_change_info=True), True, s):
+        return
+    enabled = arg == "on"
+    await set_tiktok_autodl(m.chat.id, enabled)
+    await m.reply_text(s("tiktok_autodl_enabled" if enabled else "tiktok_autodl_disabled"))
 
 
 @Client.on_message(filters.group & filters.incoming & ~filters.service, group=2)
@@ -460,3 +462,4 @@ async def tiktok_auto_download(c: Client, m: Message, s: Strings):
 
 
 commands.add_command("tiktok", "downloads")
+commands.add_command("tiktokautodl", "downloads")

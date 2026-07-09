@@ -27,6 +27,7 @@ async def _ensure_columns():
         "goodbye_enabled": "INTEGER",
         "goodbye_media_file_id": "TEXT",
         "goodbye_media_type": "TEXT",
+        "greeting_delete_seconds": "INTEGER DEFAULT 10",
     }
     for column, column_type in columns.items():
         try:
@@ -202,5 +203,35 @@ async def toggle_goodbye(chat_id: int, mode: bool):
         await conn.execute(
             "INSERT INTO groups (chat_id, goodbye_enabled) VALUES (?, ?)",
             (chat_id, mode),
+        )
+    await conn.commit()
+
+
+async def get_greeting_delete_seconds(chat_id: int) -> int:
+    await _ensure_columns()
+    cursor = await conn.execute(
+        "SELECT greeting_delete_seconds FROM groups WHERE chat_id = ?",
+        (chat_id,),
+    )
+    row = await cursor.fetchone()
+    if not row or row[0] is None:
+        return 10
+    return max(0, int(row[0]))
+
+
+async def set_greeting_delete_seconds(chat_id: int, seconds: int) -> None:
+    await _ensure_columns()
+    seconds = max(0, min(seconds, 86400))
+    cursor = await conn.execute("SELECT chat_id FROM groups WHERE chat_id = ?", (chat_id,))
+    row = await cursor.fetchone()
+    if row:
+        await conn.execute(
+            "UPDATE groups SET greeting_delete_seconds = ? WHERE chat_id = ?",
+            (seconds, chat_id),
+        )
+    else:
+        await conn.execute(
+            "INSERT INTO groups (chat_id, greeting_delete_seconds) VALUES (?, ?)",
+            (chat_id, seconds),
         )
     await conn.commit()

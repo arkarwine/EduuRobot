@@ -29,6 +29,7 @@ class Database:
             welcome_enabled INTEGER,
             goodbye TEXT,
             goodbye_enabled INTEGER,
+            greeting_delete_seconds INTEGER DEFAULT 10,
             rules TEXT,
             warns_limit INTEGER,
             chat_lang TEXT,
@@ -213,6 +214,14 @@ class Database:
         if "private_interacted" not in chat_log_columns:
             await conn.execute(
                 "ALTER TABLE chat_logs ADD COLUMN private_interacted INTEGER DEFAULT 0"
+            )
+
+        cursor = await conn.execute("PRAGMA table_info(groups)")
+        group_columns = {row[1] for row in await cursor.fetchall()}
+        await cursor.close()
+        if "greeting_delete_seconds" not in group_columns:
+            await conn.execute(
+                "ALTER TABLE groups ADD COLUMN greeting_delete_seconds INTEGER DEFAULT 10"
             )
 
         await conn.execute(
