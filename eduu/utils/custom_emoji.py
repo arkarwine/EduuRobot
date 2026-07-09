@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from html import unescape
-from typing import Any
 
 TG_EMOJI_RE = re.compile(
     r"<tg-emoji\s+emoji-id=(['\"])(?P<emoji_id>\d+)\1>(?P<fallback>.*?)</tg-emoji>",
@@ -33,8 +32,3 @@ def render_custom_emoji_text(text: str) -> str:
     if _custom_emoji_enabled:
         return text
     return strip_custom_emoji_tags(text)
-
-
-def is_custom_emoji_entity(entity: Any) -> bool:
-    entity_type = getattr(entity, "type", None)
-    return str(entity_type).casefold().endswith("custom_emoji")

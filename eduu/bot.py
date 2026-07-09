@@ -20,7 +20,6 @@ from eduu.utils.bot_identity import cache_bot_identity
 from eduu.utils.custom_emoji import (
     TEST_CUSTOM_EMOJI_FALLBACK,
     TEST_CUSTOM_EMOJI_ID,
-    is_custom_emoji_entity,
     set_custom_emoji_enabled,
 )
 
@@ -141,27 +140,43 @@ def _main_native_commands(bot_commands):
 
 
 async def _check_custom_emoji_support(client: Client) -> bool:
+    text = (
+        f'<tg-emoji emoji-id="{TEST_CUSTOM_EMOJI_ID}">'
+        f"{TEST_CUSTOM_EMOJI_FALLBACK}</tg-emoji>"
+    )
     try:
-        message = await client.send_message(
-            LOG_CHAT,
-            (
-                f'<tg-emoji emoji-id="{TEST_CUSTOM_EMOJI_ID}">'
-                f"{TEST_CUSTOM_EMOJI_FALLBACK}</tg-emoji>"
-            ),
-            parse_mode=ParseMode.HTML,
+        response = await http.post(
+            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            json={
+                "chat_id": LOG_CHAT,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_notification": True,
+            },
         )
+        data = response.json()
+        if not data.get("ok"):
+            logger.warning(
+                "Could not verify custom emoji support: %s. Keeping custom emoji enabled.",
+                data.get("description", "sendMessage failed"),
+            )
+            return True
+        message = data["result"]
         enabled = any(
-            is_custom_emoji_entity(entity)
-            and str(getattr(entity, "custom_emoji_id", "")) == TEST_CUSTOM_EMOJI_ID
-            for entity in (message.entities or [])
+            entity.get("type") == "custom_emoji"
+            and str(entity.get("custom_emoji_id", "")) == TEST_CUSTOM_EMOJI_ID
+            for entity in message.get("entities", [])
         )
-        try:
-            await message.delete()
-        except Exception:
-            pass
+        message_id = message.get("message_id")
+        if message_id is not None:
+            await http.post(
+                f"https://api.telegram.org/bot{TOKEN}/deleteMessage",
+                json={"chat_id": LOG_CHAT, "message_id": message_id},
+            )
         return enabled
-    except Exception:
-        return False
+    except Exception as e:
+        logger.warning("Could not verify custom emoji support: %s. Keeping custom emoji enabled.", e)
+        return True
 
 
 class Eduu(Client):
