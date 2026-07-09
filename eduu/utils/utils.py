@@ -6,10 +6,12 @@ from __future__ import annotations
 import asyncio
 import math
 import operator
+import os
 import re
 from datetime import datetime, timedelta
 from functools import partial
 from html import escape
+from pathlib import Path
 from string import Formatter
 from typing import TYPE_CHECKING
 
@@ -25,7 +27,7 @@ from hydrogram.types import (
     User,
 )
 
-from config import SUDOERS
+from config import DISABLED_PLUGINS, SUDOERS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -42,6 +44,22 @@ START_CHAR = ("'", '"', SMART_OPEN)
 
 http = AsyncSession(timeout=40)
 BOT_COMMAND_RE = re.compile(r"^[a-z0-9_]{1,32}$")
+DISABLED_PLUGIN_CATEGORIES = {
+    "autoreply": {"admin_autoreply"},
+    "tiktok": {"downloads"},
+}
+DISABLED_PLUGIN_COMMANDS = {
+    "autoreply": {
+        "autoreply",
+        "addreply",
+        "replies",
+        "delreply",
+        "delete_replies",
+        "delete_all_replies",
+        "reaction",
+    },
+    "tiktok": {"tiktok", "tiktokautodl"},
+}
 
 COMMAND_USAGES = {
     "ai": "/ai <question> or reply with /ai",
@@ -146,6 +164,38 @@ COMMAND_USAGES = {
     "welcomedelete": "/welcomedelete <seconds|off|status>",
     "welcomeformat": "/welcomeformat",
 }
+
+
+def _load_dotenv_value(name: str) -> str | None:
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.exists():
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            if key.strip() == name:
+                return value.strip().strip("\"'")
+    return os.environ.get(name)
+
+
+def _active_disabled_plugins() -> set[str]:
+    value = _load_dotenv_value("DISABLED_PLUGINS")
+    if value:
+        plugins = [plugin.strip() for plugin in value.split(",")]
+    else:
+        plugins = DISABLED_PLUGINS
+    return {plugin.split()[0].replace("/", ".") for plugin in plugins if plugin}
+
+
+def _command_disabled(command: str, category: str) -> bool:
+    disabled = _active_disabled_plugins()
+    for plugin in disabled:
+        if category in DISABLED_PLUGIN_CATEGORIES.get(plugin, set()):
+            return True
+        if command in DISABLED_PLUGIN_COMMANDS.get(plugin, set()):
+            return True
+    return False
 
 
 def run_async[T, **P](
@@ -317,6 +367,8 @@ class BotCommands:
         category: str,
         aliases: list[str] | None = None,
     ) -> None:
+        if _command_disabled(command, category):
+            return
         if command in self._registered:
             return
         self._registered.add(command)
@@ -332,14 +384,32 @@ class BotCommands:
             "aliases": aliases or [],
         })
 
+    def prune_disabled(self) -> None:
+        for category in list(self.commands):
+            kept_commands = [
+                cmd
+                for cmd in self.commands[category]
+                if not _command_disabled(cmd["command"], category)
+            ]
+            if kept_commands:
+                self.commands[category] = kept_commands
+            else:
+                self.commands.pop(category, None)
+        self._registered = {
+            cmd["command"]
+            for cmds_list in self.commands.values()
+            for cmd in cmds_list
+        }
+
     def get_commands_message(self, s: Strings, category: str | None = None) -> str:
         # TODO: Add pagination support.
+        self.prune_disabled()
         if category is None:
             cmds_list = []
             for subcategory in self.commands:
                 cmds_list += self.commands[subcategory]
         else:
-            cmds_list = self.commands[category]
+            cmds_list = self.commands.get(category, [])
 
         res = (
             s("cmds_list_category_title").format(category=s(f"cmds_category_{category}")) + "\n\n"
@@ -361,6 +431,7 @@ class BotCommands:
         categories: list[str] | tuple[str, ...] | set[str] | None = None,
         limit: int = 95,
     ) -> list[BotCommand]:
+        self.prune_disabled()
         bot_commands = []
         selected_categories = categories or self.commands
         for category in selected_categories:

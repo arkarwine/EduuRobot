@@ -38,6 +38,7 @@ CATEGORY_ORDER = (
 
 
 def gen_categories_kb(strings_manager):
+    commands.prune_disabled()
     categories = sorted(
         (category for category in commands.commands if category != "ai"),
         key=lambda category: (

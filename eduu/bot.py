@@ -2,9 +2,11 @@
 # Copyright (c) 2018-2026 Amano LLC
 
 import logging
+import os
 import pkgutil
 import time
 from importlib import import_module
+from pathlib import Path
 
 import hydrogram
 from hydrogram import Client
@@ -25,6 +27,28 @@ from eduu.utils.custom_emoji import (
 from . import __commit__, __version_number__
 
 logger = logging.getLogger(__name__)
+
+def _load_dotenv_value(name: str) -> str | None:
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.exists():
+        return os.environ.get(name)
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() == name:
+            return value.strip().strip("\"'")
+    return os.environ.get(name)
+
+
+def _parse_plugin_list(value: str | None) -> list[str]:
+    if value is None or value == "":
+        return list(DISABLED_PLUGINS)
+    return [plugin.strip() for plugin in value.split(",") if plugin.strip()]
+
+
+ACTIVE_DISABLED_PLUGINS = _parse_plugin_list(_load_dotenv_value("DISABLED_PLUGINS"))
 
 NATIVE_COMMAND_LIMIT = 20
 NATIVE_COMMAND_CATEGORIES = ("general", "tools", "downloads", "ai")
@@ -47,7 +71,7 @@ def _load_command_modules() -> None:
     """Ensure plugin module-level commands.add_command calls have run."""
     from eduu import plugins as plugins_pkg  # noqa: PLC0415
 
-    disabled = {plugin.split()[0].replace("/", ".") for plugin in DISABLED_PLUGINS}
+    disabled = {plugin.split()[0].replace("/", ".") for plugin in ACTIVE_DISABLED_PLUGINS}
     prefix = f"{plugins_pkg.__name__}."
     for module in pkgutil.walk_packages(plugins_pkg.__path__, prefix):
         module_name = module.name
@@ -152,7 +176,7 @@ class Eduu(Client):
             bot_token=TOKEN,
             parse_mode=ParseMode.HTML,
             workers=WORKERS,
-            plugins={"root": "eduu.plugins", "exclude": DISABLED_PLUGINS},
+            plugins={"root": "eduu.plugins", "exclude": ACTIVE_DISABLED_PLUGINS},
             sleep_threshold=180,
             
         )
