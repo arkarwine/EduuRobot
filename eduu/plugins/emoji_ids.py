@@ -101,7 +101,11 @@ async def _custom_emoji_ids_from_pack(name: str) -> list[tuple[str, str]]:
 def _format_results(title: str, rows: list[tuple[str, str]]) -> str:
     lines = [f"<b>{escape(title)}</b>", ""]
     for emoji, custom_emoji_id in rows:
-        lines.append(f"{escape(emoji)} <code>{custom_emoji_id}</code>")
+        fallback = escape(emoji)
+        lines.append(
+            f'<tg-emoji emoji-id="{custom_emoji_id}">{fallback}</tg-emoji> '
+            f"{fallback} <code>{custom_emoji_id}</code>"
+        )
     return "\n".join(lines)
 
 
