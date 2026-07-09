@@ -1,37 +1,97 @@
+from __future__ import annotations
+
+import ast
+import os
+from pathlib import Path
 from typing import List
+
+
+def _load_dotenv(path: str = ".env") -> None:
+    env_path = Path(path)
+    if not env_path.is_absolute():
+        env_path = Path(__file__).resolve().with_name(path)
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key:
+            os.environ.setdefault(key, value)
+
+
+def _env_str(name: str, default: str) -> str:
+    return os.environ.get(name, default)
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    return int(value)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return default
+    return value.casefold() in {"1", "true", "yes", "y", "on", "enable", "enabled"}
+
+
+def _env_list(name: str, default: list) -> list:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return list(default)
+    try:
+        parsed = ast.literal_eval(value)
+        if isinstance(parsed, (list, tuple, set)):
+            return list(parsed)
+    except (SyntaxError, ValueError):
+        pass
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _env_int_list(name: str, default: list[int]) -> list[int]:
+    return [int(item) for item in _env_list(name, default)]
+
+
+_load_dotenv()
 
 # This is a template configuration file for EduuRobot.
 # You can use this file as a base for your own config file by
-# copying this file to `eduu/config.py` and filling in the values.
+# copying this file to `config.py` and filling in the values.
 #
 
 
 # API keys
 
 # Bot token from Bot Father
-TOKEN: str = "123123:YOUR_BOT_TOKEN_HERE"
+TOKEN: str = _env_str("TOKEN", "123123:YOUR_BOT_TOKEN_HERE")
 
 # Telegram API ID and API hash
 # Get it from https://my.telegram.org/apps
-API_ID: int = 321321
-API_HASH: str = "YOUR_API_HASH_HERE"
+API_ID: int = _env_int("API_ID", 321321)
+API_HASH: str = _env_str("API_HASH", "YOUR_API_HASH_HERE")
 
 # Tenor API key
 # Get it from https://tenor.com/developer/keyregistration
 # Can be empty (but the /gif command won't work without it)
-TENOR_API_KEY: str = ""
+TENOR_API_KEY: str = _env_str("TENOR_API_KEY", "")
 
 # Google Gemini API key
 # Get it from https://aistudio.google.com/app/apikey
 # Can be empty (but the /ai command won't work without it)
-GEMINI_API_KEY: str = ""
+GEMINI_API_KEY: str = _env_str("GEMINI_API_KEY", "")
 
 
 # Admins/sudoers settings
 
 # Sudoers and super sudoers
-SUPER_SUDOERS: List[int] = [123456789]
-SUDOERS: List[int] = [987654321]
+SUPER_SUDOERS: List[int] = _env_int_list("SUPER_SUDOERS", [123456789])
+SUDOERS: List[int] = _env_int_list("SUDOERS", [987654321])
 
 # All super sudoers should be sudoers as well
 SUDOERS.extend(SUPER_SUDOERS)
@@ -40,32 +100,44 @@ SUDOERS.extend(SUPER_SUDOERS)
 # Other settings
 
 # Database file path
-DATABASE_PATH = "eduu.db"
+DATABASE_PATH = _env_str("DATABASE_PATH", "eduu.db")
 
 # Number of updates that can be processed in parallel
-WORKERS = 24
+WORKERS = _env_int("WORKERS", 24)
 
 # Chat used for logging
-LOG_CHAT: int = 123456789
+LOG_CHAT: int = _env_int("LOG_CHAT", 123456789)
 
 # Prefixes for commands
 # e.g: /command and !command
-PREFIXES: List[str] = ["/", "!"]
+PREFIXES: List[str] = _env_list("PREFIXES", ["/", "!"])
 
 # Updates channel username (e.g., "@channelname" or full URL)
-UPDATES_CHANNEL: str = ""
+UPDATES_CHANNEL: str = _env_str("UPDATES_CHANNEL", "")
 
 # Owner username or URL (e.g., "@username" or full URL)
-OWNER_URL: str = ""
+OWNER_URL: str = _env_str("OWNER_URL", "")
 
 # Support group username or URL (e.g., "@groupname" or full URL)
-SUPPORT_GROUP: str = ""
+SUPPORT_GROUP: str = _env_str("SUPPORT_GROUP", "")
 
 # Image URL to show on /start in private chats
-START_IMG_URL: str = ""
+START_IMG_URL: str = _env_str("START_IMG_URL", "")
 
 # Default exact words treated as spam when anti-spam is enabled
-SPAM_FILTER_WORDS: List[str] = ["bio"]
+SPAM_FILTER_WORDS: List[str] = _env_list("SPAM_FILTER_WORDS", ["bio"])
+
+# Feature flags
+# When disabled, the related commands, menu category, and passive handlers are not loaded.
+AUTO_REPLY_ENABLED: bool = _env_bool("AUTO_REPLY_ENABLED", True)
+AUTO_DOWNLOAD_ENABLED: bool = _env_bool("AUTO_DOWNLOAD_ENABLED", True)
 
 # List of disabled plugins
-DISABLED_PLUGINS: List[str] = []
+DISABLED_PLUGINS: List[str] = _env_list("DISABLED_PLUGINS", [])
+
+if not GEMINI_API_KEY:
+    DISABLED_PLUGINS.append("ai")
+if not AUTO_REPLY_ENABLED:
+    DISABLED_PLUGINS.append("autoreply")
+if not AUTO_DOWNLOAD_ENABLED:
+    DISABLED_PLUGINS.append("tiktok")

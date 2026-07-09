@@ -16,8 +16,8 @@ from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from config import LOG_CHAT, PREFIXES
 from eduu.database.chat_logs import (
     get_all_chat_ids,
+    get_broadcast_chat_ids,
     get_chat_stats,
-    get_private_broadcast_chat_ids,
     log_chat,
 )
 from eduu.utils import commands, sudofilter
@@ -55,7 +55,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
         preview_text = f"{preview_text[:BROADCAST_PREVIEW_LIMIT]}..."
 
     try:
-        chat_ids = await get_private_broadcast_chat_ids()
+        chat_ids = await get_broadcast_chat_ids()
         chat_count = len(chat_ids)
         if chat_count == 0:
             await m.reply_text(s("broadcast_no_targets"))

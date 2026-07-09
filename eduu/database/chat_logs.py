@@ -90,12 +90,37 @@ async def get_private_broadcast_chat_ids():
     """Get private chat IDs that explicitly interacted with the bot."""
     cursor = await conn.execute(
         """
-        SELECT chat_id
+        SELECT DISTINCT chat_id
         FROM chat_logs
         WHERE COALESCE(private_interacted, 0) = 1
           AND chat_type IN (?, ?)
         """,
         (str(ChatType.PRIVATE), "private"),
+    )
+    rows = await cursor.fetchall()
+    return [row[0] for row in rows]
+
+
+async def get_broadcast_chat_ids():
+    """Get default broadcast targets: started private users plus logged groups."""
+    cursor = await conn.execute(
+        """
+        SELECT DISTINCT chat_id
+        FROM chat_logs
+        WHERE (
+            COALESCE(private_interacted, 0) = 1
+            AND chat_type IN (?, ?)
+        )
+        OR chat_type IN (?, ?, ?, ?)
+        """,
+        (
+            str(ChatType.PRIVATE),
+            "private",
+            str(ChatType.GROUP),
+            "group",
+            str(ChatType.SUPERGROUP),
+            "supergroup",
+        ),
     )
     rows = await cursor.fetchall()
     return [row[0] for row in rows]
