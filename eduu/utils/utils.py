@@ -81,6 +81,7 @@ COMMAND_USAGES = {
     "delfilter": "/delfilter <trigger>",
     "dice": "/dice",
     "dog": "/dog",
+    "emoji": "/emoji <premium emoji or t.me/addemoji link> or reply with /emoji",
     "filter": '/filter "trigger" <response> or reply with /filter "trigger"',
     "filters": "/filters",
     "gif": "/gif <search term>",
