@@ -103,8 +103,8 @@ def _format_results(title: str, rows: list[tuple[str, str]]) -> str:
     for emoji, custom_emoji_id in rows:
         fallback = escape(emoji)
         lines.append(
-            f'<tg-emoji emoji-id="{custom_emoji_id}">{fallback}</tg-emoji> '
-            f"{fallback} <code>{custom_emoji_id}</code>"
+            f'<tg-emoji emoji-id="{custom_emoji_id}">{fallback}</tg-emoji>'
+            f'[<code>{custom_emoji_id}</code>]'
         )
     return "\n".join(lines)
 
@@ -122,7 +122,22 @@ async def _reply_chunks(m: Message, text: str) -> None:
     if current:
         chunks.append(current)
     for chunk in chunks:
-        await m.reply_text(chunk)
+        await _send_html_reply(m, chunk)
+
+
+async def _send_html_reply(m: Message, text: str) -> None:
+    response = await http.post(
+        f"{BOT_API_URL}/sendMessage",
+        json={
+            "chat_id": m.chat.id,
+            "text": text,
+            "parse_mode": "HTML",
+            "reply_to_message_id": m.id,
+        },
+    )
+    data = response.json()
+    if not data.get("ok"):
+        raise RuntimeError(data.get("description", "sendMessage failed"))
 
 
 @Client.on_message(filters.command("emoji", PREFIXES))
