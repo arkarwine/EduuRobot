@@ -161,7 +161,7 @@ COMMAND_USAGES = {
     "goodbye": "/goodbye <on|off>",
     "goodbyeformat": "/goodbyeformat",
     "welcome": "/welcome <on|off>",
-    "welcomedelete": "/welcomedelete <seconds|off|status>",
+    "welcomedelete": "/welcomedelete <on|off|toggle|seconds|status>",
     "welcomeformat": "/welcomeformat",
 }
 

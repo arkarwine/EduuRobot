@@ -343,7 +343,7 @@
   "welcome_delete_disabled": "Welcome နှင့် goodbye message များကို auto-delete မလုပ်တော့ပါ။",
   "welcome_delete_status": "Welcome/goodbye auto-delete: <b>{state}</b>။",
   "welcome_delete_updated": "Welcome နှင့် goodbye message များသည် <b>{seconds}s</b> ကြာပြီးနောက် ပျောက်သွားပါမည်။",
-  "welcome_delete_usage": "<b>အသုံးပြုနည်း:</b> <code>/welcomedelete seconds</code>, <code>/welcomedelete off</code>, သို့မဟုတ် <code>/welcomedelete status</code>။",
+  "welcome_delete_usage": "<b>အသုံးပြုနည်း:</b> <code>/welcomedelete on</code>, <code>/welcomedelete off</code>, <code>/welcomedelete toggle</code>, <code>/welcomedelete seconds</code>, သို့မဟုတ် <code>/welcomedelete status</code>။",
   "welcome_default_reset": "Global default welcome message ကို reset လုပ်လိုက်ပါပြီ။",
   "welcome_default_set_empty": "<b>အသုံးပြုနည်း:</b> <code>/setdefaultwelcome welcome text</code>၊ သို့မဟုတ် message တစ်ခုကို <code>/setdefaultwelcome</code> နဲ့ reply လုပ်ပါ။",
   "welcome_default_set_success": "Global default welcome message ကို update လုပ်ပြီးပါပြီ။",

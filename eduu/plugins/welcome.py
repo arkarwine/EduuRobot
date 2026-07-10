@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 MEMBER_STATUSES = {"member", "administrator", "owner"}
+DEFAULT_GREETING_DELETE_SECONDS = 10
 PROFILE_PHOTO_TOKENS = {"{profile_photo}", "{user_photo}"}
 _recent_member_updates: dict[tuple[int, int, str], float] = {}
 
@@ -518,6 +519,11 @@ async def set_welcome_delete_delay(c: Client, m: Message, s: Strings):
     value = m.command[1].casefold()
     if value in {"off", "disable", "disabled", "none", "0"}:
         seconds = 0
+    elif value in {"on", "enable", "enabled"}:
+        seconds = DEFAULT_GREETING_DELETE_SECONDS
+    elif value == "toggle":
+        current_seconds = await get_greeting_delete_seconds(m.chat.id)
+        seconds = 0 if current_seconds > 0 else DEFAULT_GREETING_DELETE_SECONDS
     elif value.isdigit():
         seconds = min(max(int(value), 1), 86400)
     else:

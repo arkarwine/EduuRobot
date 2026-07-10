@@ -343,7 +343,7 @@
   "welcome_delete_disabled": "Welcome and goodbye messages will no longer be auto-deleted.",
   "welcome_delete_status": "Welcome/goodbye auto-delete: <b>{state}</b>.",
   "welcome_delete_updated": "Welcome and goodbye messages will disappear after <b>{seconds}s</b>.",
-  "welcome_delete_usage": "<b>Usage:</b> <code>/welcomedelete seconds</code>, <code>/welcomedelete off</code>, or <code>/welcomedelete status</code>.",
+  "welcome_delete_usage": "<b>Usage:</b> <code>/welcomedelete on</code>, <code>/welcomedelete off</code>, <code>/welcomedelete toggle</code>, <code>/welcomedelete seconds</code>, or <code>/welcomedelete status</code>.",
   "welcome_default_reset": "The global default welcome message has been reset.",
   "welcome_default_set_empty": "<b>Usage:</b> <code>/setdefaultwelcome welcome text</code>, or reply to a message with <code>/setdefaultwelcome</code>.",
   "welcome_default_set_success": "The global default welcome message has been updated.",
