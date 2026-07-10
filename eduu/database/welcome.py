@@ -8,6 +8,8 @@ from typing import Optional, Tuple
 from .core import database
 
 conn = database.get_conn()
+DEFAULT_GREETING_DELETE_SECONDS = 10
+GREETING_DELETE_DEFAULT_KIND = "greeting_delete_seconds"
 
 
 async def _ensure_columns():
@@ -63,6 +65,44 @@ async def set_default_template(kind: str, text: str) -> None:
 async def reset_default_template(kind: str) -> None:
     await _ensure_columns()
     await conn.execute("DELETE FROM welcome_defaults WHERE kind = ?", (kind,))
+    await conn.commit()
+
+
+async def get_default_greeting_delete_seconds() -> int:
+    await _ensure_columns()
+    cursor = await conn.execute(
+        "SELECT text FROM welcome_defaults WHERE kind = ?",
+        (GREETING_DELETE_DEFAULT_KIND,),
+    )
+    row = await cursor.fetchone()
+    if not row or row[0] is None:
+        return DEFAULT_GREETING_DELETE_SECONDS
+    try:
+        return max(0, int(row[0]))
+    except (TypeError, ValueError):
+        return DEFAULT_GREETING_DELETE_SECONDS
+
+
+async def set_default_greeting_delete_seconds(seconds: int) -> None:
+    await _ensure_columns()
+    seconds = max(0, min(seconds, 86400))
+    await conn.execute(
+        """
+        INSERT INTO welcome_defaults(kind, text)
+        VALUES(?, ?)
+        ON CONFLICT(kind) DO UPDATE SET text = excluded.text
+        """,
+        (GREETING_DELETE_DEFAULT_KIND, str(seconds)),
+    )
+    await conn.commit()
+
+
+async def reset_default_greeting_delete_seconds() -> None:
+    await _ensure_columns()
+    await conn.execute(
+        "DELETE FROM welcome_defaults WHERE kind = ?",
+        (GREETING_DELETE_DEFAULT_KIND,),
+    )
     await conn.commit()
 
 
@@ -215,7 +255,7 @@ async def get_greeting_delete_seconds(chat_id: int) -> int:
     )
     row = await cursor.fetchone()
     if not row or row[0] is None:
-        return 10
+        return await get_default_greeting_delete_seconds()
     return max(0, int(row[0]))
 
 

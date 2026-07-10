@@ -13,11 +13,15 @@ from hydrogram.types import ChatMemberUpdated, ChatPrivileges, InlineKeyboardMar
 
 from config import PREFIXES
 from eduu.database.welcome import (
+    DEFAULT_GREETING_DELETE_SECONDS,
+    get_default_greeting_delete_seconds,
     get_default_template,
     get_greeting_delete_seconds,
     get_goodbye,
     get_welcome,
+    reset_default_greeting_delete_seconds,
     reset_default_template,
+    set_default_greeting_delete_seconds,
     set_default_template,
     set_greeting_delete_seconds,
     set_goodbye,
@@ -34,7 +38,6 @@ logger = logging.getLogger(__name__)
 
 NON_MEMBER_STATUSES = {"left", "banned", "restricted", "kicked"}
 MEMBER_STATUSES = {"member", "administrator", "owner"}
-DEFAULT_GREETING_DELETE_SECONDS = 10
 PROFILE_PHOTO_TOKENS = {"{profile_photo}", "{user_photo}"}
 _recent_member_updates: dict[tuple[int, int, str], float] = {}
 
@@ -506,27 +509,34 @@ async def disable_goodbye_message(c: Client, m: Message, s: Strings):
     await m.reply_text(s("goodbye_mode_disable").format(chat_title=escape(m.chat.title or "")))
 
 
-@Client.on_message(filters.command("welcomedelete", PREFIXES) & filters.group)
+async def _parse_greeting_delete_seconds(value: str, current_seconds: int) -> int | None:
+    value = value.casefold()
+    if value in {"off", "disable", "disabled", "none", "0"}:
+        return 0
+    if value in {"on", "enable", "enabled"}:
+        return DEFAULT_GREETING_DELETE_SECONDS
+    if value == "toggle":
+        return 0 if current_seconds > 0 else DEFAULT_GREETING_DELETE_SECONDS
+    if value.isdigit():
+        return min(max(int(value), 1), 86400)
+    return None
+
+
+@Client.on_message(filters.command(["greetingdelete", "welcomedelete"], PREFIXES) & filters.group)
 @require_admin(ChatPrivileges(can_change_info=True))
 @use_chat_lang
-async def set_welcome_delete_delay(c: Client, m: Message, s: Strings):
+async def set_greeting_delete_delay(c: Client, m: Message, s: Strings):
     if len(m.command) == 1 or m.command[1].casefold() == "status":
         seconds = await get_greeting_delete_seconds(m.chat.id)
         state = s("general_disabled") if seconds <= 0 else f"{seconds}s"
         await m.reply_text(s("welcome_delete_status").format(state=state))
         return
 
-    value = m.command[1].casefold()
-    if value in {"off", "disable", "disabled", "none", "0"}:
-        seconds = 0
-    elif value in {"on", "enable", "enabled"}:
-        seconds = DEFAULT_GREETING_DELETE_SECONDS
-    elif value == "toggle":
-        current_seconds = await get_greeting_delete_seconds(m.chat.id)
-        seconds = 0 if current_seconds > 0 else DEFAULT_GREETING_DELETE_SECONDS
-    elif value.isdigit():
-        seconds = min(max(int(value), 1), 86400)
-    else:
+    seconds = await _parse_greeting_delete_seconds(
+        m.command[1],
+        await get_greeting_delete_seconds(m.chat.id),
+    )
+    if seconds is None:
         await m.reply_text(s("welcome_delete_usage"))
         return
 
@@ -535,6 +545,30 @@ async def set_welcome_delete_delay(c: Client, m: Message, s: Strings):
         await m.reply_text(s("welcome_delete_disabled"))
     else:
         await m.reply_text(s("welcome_delete_updated").format(seconds=seconds))
+
+
+@Client.on_message(filters.command("defaultgreetingdelete", PREFIXES) & sudofilter)
+@use_chat_lang
+async def set_default_greeting_delete_delay(c: Client, m: Message, s: Strings):
+    if len(m.command) == 1 or m.command[1].casefold() == "status":
+        seconds = await get_default_greeting_delete_seconds()
+        state = s("general_disabled") if seconds <= 0 else f"{seconds}s"
+        await m.reply_text(s("default_welcome_delete_status").format(state=state))
+        return
+
+    seconds = await _parse_greeting_delete_seconds(
+        m.command[1],
+        await get_default_greeting_delete_seconds(),
+    )
+    if seconds is None:
+        await m.reply_text(s("default_welcome_delete_usage"))
+        return
+
+    await set_default_greeting_delete_seconds(seconds)
+    if seconds <= 0:
+        await m.reply_text(s("default_welcome_delete_disabled"))
+    else:
+        await m.reply_text(s("default_welcome_delete_updated").format(seconds=seconds))
 
 
 @Client.on_message(filters.command(["resetwelcome", "clearwelcome"], PREFIXES) & filters.group)
@@ -567,6 +601,13 @@ async def reset_default_goodbye_message(c: Client, m: Message, s: Strings):
     await m.reply_text(s("goodbye_default_reset"))
 
 
+@Client.on_message(filters.command("resetdefaultgreetingdelete", PREFIXES) & sudofilter)
+@use_chat_lang
+async def reset_default_greeting_delete_delay(c: Client, m: Message, s: Strings):
+    await reset_default_greeting_delete_seconds()
+    await m.reply_text(s("default_welcome_delete_reset"))
+
+
 for command in (
     "resetwelcome",
     "setwelcome",
@@ -575,7 +616,9 @@ for command in (
     "getdefaultwelcome",
     "resetdefaultwelcome",
     "welcome",
-    "welcomedelete",
+    "greetingdelete",
+    "defaultgreetingdelete",
+    "resetdefaultgreetingdelete",
     "welcomeformat",
     "resetgoodbye",
     "setgoodbye",

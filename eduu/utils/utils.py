@@ -128,6 +128,7 @@ COMMAND_USAGES = {
     "resetwarns": "/resetwarns <user> or reply with /resetwarns",
     "resetgoodbye": "/resetgoodbye",
     "resetdefaultgoodbye": "/resetdefaultgoodbye",
+    "resetdefaultgreetingdelete": "/resetdefaultgreetingdelete",
     "resetdefaultwelcome": "/resetdefaultwelcome",
     "resetwelcome": "/resetwelcome",
     "rules": "/rules",
@@ -160,8 +161,9 @@ COMMAND_USAGES = {
     "weather": "/weather <location>",
     "goodbye": "/goodbye <on|off>",
     "goodbyeformat": "/goodbyeformat",
+    "defaultgreetingdelete": "/defaultgreetingdelete <on|off|toggle|seconds|status>",
+    "greetingdelete": "/greetingdelete <on|off|toggle|seconds|status>",
     "welcome": "/welcome <on|off>",
-    "welcomedelete": "/welcomedelete <on|off|toggle|seconds|status>",
     "welcomeformat": "/welcomeformat",
 }
 
