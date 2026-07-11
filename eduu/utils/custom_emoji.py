@@ -9,7 +9,7 @@ TG_EMOJI_RE = re.compile(
     r"<tg-emoji\s+emoji-id=(['\"])(?P<emoji_id>\d+)\1>(?P<fallback>.*?)</tg-emoji>",
     re.IGNORECASE | re.DOTALL,
 )
-TEST_CUSTOM_EMOJI_ID = "5764638872000533034"
+TEST_CUSTOM_EMOJI_ID = "5258328383183396223"
 TEST_CUSTOM_EMOJI_FALLBACK = "📚"
 
 _custom_emoji_enabled = True
