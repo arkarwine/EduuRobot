@@ -20,7 +20,9 @@ ADD_EMOJI_RE = re.compile(
     r"(?:https?://)?(?:t\.me|telegram\.me)/(?:addemoji|addstickers)/(?P<name>[A-Za-z0-9_]+)",
     re.IGNORECASE,
 )
+CUSTOM_EMOJI_ID_RE = re.compile(r"(?<!\d)\d{10,20}(?!\d)")
 MAX_MESSAGE_LENGTH = 3900
+CUSTOM_EMOJI_LOOKUP_BATCH_SIZE = 200
 
 
 def _command_arg(m: Message) -> str:
@@ -99,6 +101,35 @@ async def _custom_emoji_ids_from_pack(name: str) -> list[tuple[str, str]]:
     return results
 
 
+def _custom_emoji_ids_from_text(text: str) -> list[str]:
+    return list(dict.fromkeys(CUSTOM_EMOJI_ID_RE.findall(text or "")))
+
+
+async def _custom_emoji_rows_from_ids(
+    custom_emoji_ids: list[str],
+) -> list[tuple[str, str]]:
+    stickers_by_id: dict[str, dict[str, Any]] = {}
+    for offset in range(0, len(custom_emoji_ids), CUSTOM_EMOJI_LOOKUP_BATCH_SIZE):
+        batch = custom_emoji_ids[offset : offset + CUSTOM_EMOJI_LOOKUP_BATCH_SIZE]
+        response = await http.post(
+            f"{BOT_API_URL}/getCustomEmojiStickers",
+            json={"custom_emoji_ids": batch},
+        )
+        data = response.json()
+        if not data.get("ok"):
+            raise RuntimeError(data.get("description", "getCustomEmojiStickers failed"))
+        for sticker in data.get("result", []):
+            custom_emoji_id = str(sticker.get("custom_emoji_id", ""))
+            if custom_emoji_id:
+                stickers_by_id[custom_emoji_id] = sticker
+
+    return [
+        (stickers_by_id[custom_emoji_id].get("emoji") or "emoji", custom_emoji_id)
+        for custom_emoji_id in custom_emoji_ids
+        if custom_emoji_id in stickers_by_id
+    ]
+
+
 def _format_results(title: str, rows: list[tuple[str, str]]) -> str:
     lines = [f"<b>{escape(title)}</b>", ""]
     for emoji, custom_emoji_id in rows:
@@ -168,11 +199,48 @@ async def emoji_ids(c: Client, m: Message, s: Strings):
             continue
         rows.extend(row for row in pack_rows if row not in rows)
 
+    lookup_errors = []
+    raw_ids = _custom_emoji_ids_from_text(arg)
+    if m.reply_to_message:
+        reply_text = m.reply_to_message.text or m.reply_to_message.caption or ""
+        raw_ids.extend(
+            custom_emoji_id
+            for custom_emoji_id in _custom_emoji_ids_from_text(reply_text)
+            if custom_emoji_id not in raw_ids
+        )
+    if raw_ids:
+        try:
+            id_rows = await _custom_emoji_rows_from_ids(raw_ids)
+        except Exception as e:
+            lookup_errors.append(escape(str(e)[:250]))
+        else:
+            found_ids = {custom_emoji_id for _, custom_emoji_id in id_rows}
+            missing_ids = [
+                custom_emoji_id
+                for custom_emoji_id in raw_ids
+                if custom_emoji_id not in found_ids
+            ]
+            if missing_ids:
+                lookup_errors.append(
+                    s("emoji_ids_not_found").format(
+                        ids=", ".join(
+                            f"<code>{custom_emoji_id}</code>"
+                            for custom_emoji_id in missing_ids
+                        )
+                    )
+                )
+            existing_ids = {custom_emoji_id for _, custom_emoji_id in rows}
+            rows.extend(row for row in id_rows if row[1] not in existing_ids)
+
     if not rows:
         usage = s("emoji_usage")
         if pack_errors:
             usage += "\n\n" + s("emoji_pack_errors").format(
                 errors="\n".join(f"• {error}" for error in pack_errors)
+            )
+        if lookup_errors:
+            usage += "\n\n" + s("emoji_lookup_errors").format(
+                errors="\n".join(f"• {error}" for error in lookup_errors)
             )
         await m.reply_text(usage)
         return
@@ -181,6 +249,10 @@ async def emoji_ids(c: Client, m: Message, s: Strings):
     if pack_errors:
         text += "\n\n" + s("emoji_pack_errors").format(
             errors="\n".join(f"• {error}" for error in pack_errors)
+        )
+    if lookup_errors:
+        text += "\n\n" + s("emoji_lookup_errors").format(
+            errors="\n".join(f"• {error}" for error in lookup_errors)
         )
     await _reply_chunks(m, text)
 
