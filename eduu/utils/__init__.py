@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2018-2026 Amano LLC
 
+from .sudoers import is_sudoer, is_super_sudoer, sudofilter, super_sudofilter
 from .utils import (
     button_parser,
     check_perms,
@@ -17,7 +18,6 @@ from .utils import (
     remove_escapes,
     run_async,
     split_quotes,
-    sudofilter,
 )
 
 __all__: list[str] = [
@@ -30,10 +30,13 @@ __all__: list[str] = [
     "get_target_user",
     "http",
     "inline_commands",
+    "is_sudoer",
+    "is_super_sudoer",
     "linkify_commit",
     "pretty_size",
     "remove_escapes",
     "run_async",
     "split_quotes",
     "sudofilter",
+    "super_sudofilter",
 ]

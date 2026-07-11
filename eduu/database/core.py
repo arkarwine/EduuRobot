@@ -46,6 +46,13 @@ class Database:
             chat_lang TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS sudoers(
+            user_id INTEGER PRIMARY KEY,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            updated_by INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS channels(
             chat_id INTEGER PRIMARY KEY,
             chat_lang TEXT

@@ -22,6 +22,7 @@ from eduu.utils.custom_emoji import (
     TEST_CUSTOM_EMOJI_ID,
     set_custom_emoji_enabled,
 )
+from eduu.utils.sudoers import apply_sudo_overrides
 
 from . import __commit__, __version_number__
 
@@ -197,6 +198,10 @@ class Eduu(Client):
         )
 
     async def start(self):
+        from eduu.database.sudoers import get_sudo_overrides  # noqa: PLC0415
+
+        effective_sudoers = apply_sudo_overrides(await get_sudo_overrides())
+        logger.info("Loaded %s effective sudoers.", len(effective_sudoers))
         await super().start()
 
         self.start_time = time.time()

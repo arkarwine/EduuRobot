@@ -16,7 +16,7 @@ from string import Formatter
 from typing import TYPE_CHECKING
 
 from curl_cffi.requests import AsyncSession
-from hydrogram import Client, filters
+from hydrogram import Client
 from hydrogram.enums import ChatMemberStatus, MessageEntityType
 from hydrogram.types import (
     BotCommand,
@@ -27,7 +27,7 @@ from hydrogram.types import (
     User,
 )
 
-from config import DISABLED_PLUGINS, SUDOERS
+from config import DISABLED_PLUGINS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -62,6 +62,7 @@ DISABLED_PLUGIN_COMMANDS = {
 }
 
 COMMAND_USAGES = {
+    "addsudo": "/addsudo <user> or reply with /addsudo",
     "ai": "/ai <question> or reply with /ai",
     "all": "/all <text> or reply with /all",
     "allstatus": "/allstatus",
@@ -96,6 +97,7 @@ COMMAND_USAGES = {
     "delreply": "/delreply <id>",
     "delspamallow": "/delspamallow <user|link|source> <value>",
     "delspamfilter": "/delspamfilter <word or phrase>",
+    "delsudo": "/delsudo <user> or reply with /delsudo",
     "delfilter": "/delfilter <trigger>",
     "dice": "/dice",
     "dog": "/dog",
@@ -146,6 +148,7 @@ COMMAND_USAGES = {
     "spamfilters": "/spamfilters",
     "start": "/start",
     "stats": "/stats",
+    "sudos": "/sudos",
     "stop": "/stop",
     "tban": "/tban <duration> as a reply",
     "tmute": "/tmute <duration> as a reply",
@@ -253,9 +256,6 @@ async def check_perms(
     if complain_missing_perms:
         await sender(s("admins_no_permission_error").format(permissions=", ".join(missing_perms)))
     return False
-
-
-sudofilter = filters.user(SUDOERS)
 
 
 async def extract_time(m: Message, time: str) -> datetime | None:

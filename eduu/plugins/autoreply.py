@@ -13,7 +13,7 @@ from hydrogram.enums import ParseMode
 from hydrogram.errors import RPCError
 from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from config import PREFIXES, SUDOERS
+from config import PREFIXES
 from eduu.database.autoreply import (
     GLOBAL_AUTOREPLY_ID,
     add_reaction,
@@ -38,6 +38,7 @@ from eduu.utils.buttons import styled_button
 from eduu.utils.decorators import stop_here
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_text
+from eduu.utils.sudoers import is_sudoer
 
 COOLDOWN_OPTIONS = [0, 5, 10, 15, 30, 60]
 RATE_LIMIT_OPTIONS = [0, 5, 10, 20, 30]
@@ -49,7 +50,7 @@ _recent_interactions: dict[int, deque[float]] = defaultdict(deque)
 
 
 def _can_manage(user_id: int | None) -> bool:
-    return bool(user_id and user_id in SUDOERS)
+    return is_sudoer(user_id)
 
 
 def _command_arg(m: Message) -> str:

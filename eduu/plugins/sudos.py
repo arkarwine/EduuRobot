@@ -22,11 +22,20 @@ from hydrogram.enums import ChatType
 from hydrogram.errors import RPCError
 from meval import meval
 
-from config import DATABASE_PATH
+from config import DATABASE_PATH, PREFIXES
 from eduu.database import database
 from eduu.database.restarted import set_restarted
-from eduu.utils import sudofilter
+from eduu.database.sudoers import get_sudo_overrides, set_sudo_override
+from eduu.utils import commands, get_target_user, sudofilter
 from eduu.utils.localization import Strings, use_chat_lang
+from eduu.utils.sudoers import (
+    CONFIGURED_SUDOERS,
+    SUPER_SUDOER_IDS,
+    apply_sudo_overrides,
+    get_sudoer_ids,
+    is_sudoer,
+    is_super_sudoer,
+)
 
 if TYPE_CHECKING:
     from hydrogram.types import Message
@@ -36,9 +45,71 @@ prefix: list | str = "!"
 conn = database.get_conn()
 
 
-@Client.on_message(filters.command("sudos", prefix) & sudofilter)
-async def sudos(c: Client, m: Message):
-    await m.reply_text("Test")
+def _sudoer_kind(user_id: int, overrides: dict[int, bool], s: Strings) -> str:
+    if user_id in SUPER_SUDOER_IDS:
+        return s("sudoers_kind_super")
+    if overrides.get(user_id) is True and user_id not in CONFIGURED_SUDOERS:
+        return s("sudoers_kind_runtime")
+    return s("sudoers_kind_configured")
+
+
+@Client.on_message(filters.command("sudos", PREFIXES) & sudofilter)
+@use_chat_lang
+async def sudos(c: Client, m: Message, s: Strings):
+    overrides = await get_sudo_overrides()
+    sudoer_ids = sorted(get_sudoer_ids())
+    items = [
+        f'<a href="tg://user?id={user_id}">{user_id}</a> — '
+        f"{_sudoer_kind(user_id, overrides, s)}"
+        for user_id in sudoer_ids
+    ]
+    await m.reply_text(s("sudoers_list").format(count=len(items), items="\n".join(items)))
+
+
+async def _require_super_sudoer(m: Message, s: Strings) -> bool:
+    if is_super_sudoer(m.from_user.id if m.from_user else None):
+        return True
+    await m.reply_text(s("sudoers_super_only"))
+    return False
+
+
+@Client.on_message(filters.command("addsudo", PREFIXES))
+@use_chat_lang
+async def add_sudoer(c: Client, m: Message, s: Strings):
+    if not await _require_super_sudoer(m, s):
+        return
+    target = await get_target_user(c, m)
+    if not target:
+        await m.reply_text(s("sudoers_target_required").format(command="addsudo"))
+        return
+    if is_sudoer(target.id):
+        await m.reply_text(s("sudoers_already_added").format(user=target.mention))
+        return
+
+    await set_sudo_override(target.id, True, m.from_user.id)
+    apply_sudo_overrides(await get_sudo_overrides())
+    await m.reply_text(s("sudoers_added").format(user=target.mention))
+
+
+@Client.on_message(filters.command("delsudo", PREFIXES))
+@use_chat_lang
+async def delete_sudoer(c: Client, m: Message, s: Strings):
+    if not await _require_super_sudoer(m, s):
+        return
+    target = await get_target_user(c, m)
+    if not target:
+        await m.reply_text(s("sudoers_target_required").format(command="delsudo"))
+        return
+    if target.id in SUPER_SUDOER_IDS:
+        await m.reply_text(s("sudoers_cannot_remove_super").format(user=target.mention))
+        return
+    if not is_sudoer(target.id):
+        await m.reply_text(s("sudoers_already_removed").format(user=target.mention))
+        return
+
+    await set_sudo_override(target.id, False, m.from_user.id)
+    apply_sudo_overrides(await get_sudo_overrides())
+    await m.reply_text(s("sudoers_removed").format(user=target.mention))
 
 
 @Client.on_message(filters.command("cmd", prefix) & sudofilter)
@@ -288,5 +359,12 @@ async def getchatcmd(c: Client, m: Message):
         return
 
     await m.reply_text(
-        f"<b>Title:</b> {targetchat.title}\n<b>Username:</b> {targetchat.username}\n<b>Members:</b> {targetchat.members_count}"
+        f"<b>Title:</b> {targetchat.title}\n"
+        f"<b>Username:</b> {targetchat.username}\n"
+        f"<b>Members:</b> {targetchat.members_count}"
     )
+
+
+commands.add_command("sudos", "tools")
+commands.add_command("addsudo", "tools")
+commands.add_command("delsudo", "tools")
