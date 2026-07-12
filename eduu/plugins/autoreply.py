@@ -155,7 +155,7 @@ def _manager_keyboard(chat_id: int, settings: dict, s: Strings) -> InlineKeyboar
             styled_button(
                 enabled_text,
                 callback_data=f"mgr:toggle:{chat_id}",
-                style="danger" if settings["enabled"] else "success",
+                style="success" if settings["enabled"] else "danger",
             )
         ],
     ]

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import humanfriendly
 import speedtest
 from hydrogram import Client, filters
-from hydrogram.enums import ChatType
+from hydrogram.enums import ChatType, MessageEntityType
 from hydrogram.errors import RPCError
 from meval import meval
 
@@ -26,10 +26,9 @@ from config import DATABASE_PATH, PREFIXES
 from eduu.database import database
 from eduu.database.restarted import set_restarted
 from eduu.database.sudoers import get_sudo_overrides, set_sudo_override
-from eduu.utils import commands, get_target_user, sudofilter
+from eduu.utils import commands, sudofilter
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.sudoers import (
-    CONFIGURED_SUDOERS,
     SUPER_SUDOER_IDS,
     apply_sudo_overrides,
     get_sudoer_ids,
@@ -45,25 +44,47 @@ prefix: list | str = "!"
 conn = database.get_conn()
 
 
-def _sudoer_kind(user_id: int, overrides: dict[int, bool], s: Strings) -> str:
-    if user_id in SUPER_SUDOER_IDS:
-        return s("sudoers_kind_super")
-    if overrides.get(user_id) is True and user_id not in CONFIGURED_SUDOERS:
-        return s("sudoers_kind_runtime")
-    return s("sudoers_kind_configured")
+async def _get_sudo_target(c: Client, m: Message):
+    if len(m.command) < 2:
+        return None
+    for entity in m.entities or []:
+        if entity.type == MessageEntityType.TEXT_MENTION and getattr(entity, "user", None):
+            return entity.user
+    target = m.command[1]
+    try:
+        return await c.get_users(int(target) if target.isdecimal() else target)
+    except Exception:
+        return None
 
 
-@Client.on_message(filters.command("sudos", PREFIXES) & sudofilter)
+async def _format_sudoer(c: Client, user_id: int, s: Strings) -> str:
+    try:
+        user = await c.get_users(user_id)
+    except Exception:
+        username = s("sudoers_username_unknown")
+    else:
+        username = (
+            f"@{html.escape(user.username)}" if user.username else s("sudoers_no_username")
+        )
+    return f"• {username} — <code>{user_id}</code>"
+
+
+@Client.on_message(filters.command("sudolist", PREFIXES) & sudofilter)
 @use_chat_lang
-async def sudos(c: Client, m: Message, s: Strings):
-    overrides = await get_sudo_overrides()
-    sudoer_ids = sorted(get_sudoer_ids())
-    items = [
-        f'<a href="tg://user?id={user_id}">{user_id}</a> — '
-        f"{_sudoer_kind(user_id, overrides, s)}"
-        for user_id in sudoer_ids
-    ]
-    await m.reply_text(s("sudoers_list").format(count=len(items), items="\n".join(items)))
+async def sudo_list(c: Client, m: Message, s: Strings):
+    effective = get_sudoer_ids()
+    super_ids = sorted(effective & SUPER_SUDOER_IDS)
+    sudoer_ids = sorted(effective - SUPER_SUDOER_IDS)
+    super_items = [await _format_sudoer(c, user_id, s) for user_id in super_ids]
+    sudoer_items = [await _format_sudoer(c, user_id, s) for user_id in sudoer_ids]
+    await m.reply_text(
+        s("sudoers_list").format(
+            super_count=len(super_items),
+            super_items="\n".join(super_items) or s("sudoers_none"),
+            sudo_count=len(sudoer_items),
+            sudo_items="\n".join(sudoer_items) or s("sudoers_none"),
+        )
+    )
 
 
 async def _require_super_sudoer(m: Message, s: Strings) -> bool:
@@ -78,7 +99,7 @@ async def _require_super_sudoer(m: Message, s: Strings) -> bool:
 async def add_sudoer(c: Client, m: Message, s: Strings):
     if not await _require_super_sudoer(m, s):
         return
-    target = await get_target_user(c, m)
+    target = await _get_sudo_target(c, m)
     if not target:
         await m.reply_text(s("sudoers_target_required").format(command="addsudo"))
         return
@@ -96,7 +117,7 @@ async def add_sudoer(c: Client, m: Message, s: Strings):
 async def delete_sudoer(c: Client, m: Message, s: Strings):
     if not await _require_super_sudoer(m, s):
         return
-    target = await get_target_user(c, m)
+    target = await _get_sudo_target(c, m)
     if not target:
         await m.reply_text(s("sudoers_target_required").format(command="delsudo"))
         return
@@ -365,6 +386,6 @@ async def getchatcmd(c: Client, m: Message):
     )
 
 
-commands.add_command("sudos", "tools")
+commands.add_command("sudolist", "tools")
 commands.add_command("addsudo", "tools")
 commands.add_command("delsudo", "tools")

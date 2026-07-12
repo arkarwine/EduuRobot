@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import config
-
 from hydrogram import Client, filters
 from hydrogram.enums import ChatMembersFilter, ChatMemberStatus
 from hydrogram.types import (
@@ -13,6 +11,7 @@ from hydrogram.types import (
     Message,
 )
 
+import config
 from config import OWNER_URL, PREFIXES, START_IMG_URL, UPDATES_CHANNEL
 from eduu import __commit__, __copyright_year__, __version_number__
 from eduu.utils import commands, linkify_commit
@@ -20,6 +19,7 @@ from eduu.utils.bot_identity import get_bot_name
 from eduu.utils.buttons import styled_button
 from eduu.utils.localization import Strings, use_chat_lang
 from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send_styled_text
+from eduu.utils.sudoers import is_sudoer, is_super_sudoer
 
 
 # Using a low priority group so deeplinks will run before this and stop the propagation.
@@ -28,6 +28,7 @@ from eduu.utils.styled_messages import edit_styled_text, send_styled_photo, send
 @use_chat_lang
 async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
     msg = m.message if isinstance(m, CallbackQuery) else m
+    actor = m.from_user if isinstance(m, CallbackQuery) else msg.from_user
 
     buttons = []
 
@@ -39,6 +40,17 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
                     callback_data="view_category ai",
                     style="success",
                 ),
+            ]
+        )
+
+    if is_sudoer(actor.id if actor else None):
+        buttons.append(
+            [
+                styled_button(
+                    s("start_sudo_panel_btn"),
+                    callback_data="sudo_panel",
+                    style="danger",
+                )
             ]
         )
 
@@ -85,6 +97,31 @@ async def start_pvt(c: Client, m: Message | CallbackQuery, s: Strings):
             pass
 
     await send_styled_text(m, start_text, keyboard)
+
+
+@Client.on_callback_query(filters.regex("^sudo_panel$"))
+@use_chat_lang
+async def sudo_panel(c: Client, m: CallbackQuery, s: Strings):
+    user_id = m.from_user.id if m.from_user else None
+    if not is_sudoer(user_id):
+        await m.answer(s("sudo_panel_denied"), show_alert=True)
+        return
+
+    super_commands = s("sudo_panel_super_commands") if is_super_sudoer(user_id) else ""
+    autoreply_command = (
+        s("sudo_panel_autoreply_command") if "admin_autoreply" in commands.commands else ""
+    )
+    keyboard = InlineKeyboardMarkup(
+        [[styled_button(s("general_back_btn"), callback_data="start_back", style="danger")]]
+    )
+    await edit_styled_text(
+        m.message,
+        s("sudo_panel_text").format(
+            autoreply_command=autoreply_command,
+            super_commands=super_commands,
+        ),
+        keyboard,
+    )
 
 
 @Client.on_message(filters.command("start", PREFIXES) & filters.group, group=2)

@@ -62,7 +62,7 @@ DISABLED_PLUGIN_COMMANDS = {
 }
 
 COMMAND_USAGES = {
-    "addsudo": "/addsudo <user> or reply with /addsudo",
+    "addsudo": "/addsudo <user_id|@username>",
     "ai": "/ai <question> or reply with /ai",
     "all": "/all <text> or reply with /all",
     "allstatus": "/allstatus",
@@ -97,7 +97,7 @@ COMMAND_USAGES = {
     "delreply": "/delreply <id>",
     "delspamallow": "/delspamallow <user|link|source> <value>",
     "delspamfilter": "/delspamfilter <word or phrase>",
-    "delsudo": "/delsudo <user> or reply with /delsudo",
+    "delsudo": "/delsudo <user_id|@username>",
     "delfilter": "/delfilter <trigger>",
     "dice": "/dice",
     "dog": "/dog",
@@ -148,7 +148,7 @@ COMMAND_USAGES = {
     "spamfilters": "/spamfilters",
     "start": "/start",
     "stats": "/stats",
-    "sudos": "/sudos",
+    "sudolist": "/sudolist",
     "stop": "/stop",
     "tban": "/tban <duration> as a reply",
     "tmute": "/tmute <duration> as a reply",
