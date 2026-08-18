@@ -241,7 +241,8 @@ DEFAULT_PROFANITY_WORDS: List[str] = [
     "လီးရှည်",
     "လီးတို",
 ]
-SPAM_FILTER_WORDS: List[str] = _env_list("SPAM_FILTER_WORDS", DEFAULT_PROFANITY_WORDS)
+SPAM_FILTER_WORDS: List[str] = _env_list("SPAM_FILTER_WORDS")
+SPAM_FILTER_WORDS.append(DEFAULT_PROFANITY_WORDS)
 
 # List of disabled plugins
 # Example: DISABLED_PLUGINS=ai,autoreply,tiktok
