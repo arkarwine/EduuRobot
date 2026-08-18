@@ -5,7 +5,12 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from config import DATABASE_PATH, SPAM_FILTER_WORDS
 
