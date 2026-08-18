@@ -5,7 +5,7 @@ import logging
 
 import aiosqlite
 
-from config import DATABASE_PATH
+from config import DATABASE_PATH, DEFAULT_WARN_ACTION
 
 logger = logging.getLogger(__name__)
 
@@ -237,9 +237,10 @@ class Database:
         await conn.execute(
             """
             UPDATE groups
-            SET warn_action = 'mute'
+            SET warn_action = ?
             WHERE warn_action IS NULL OR warn_action = 'ban'
-            """
+            """,
+            (DEFAULT_WARN_ACTION,),
         )
 
         # Update the database

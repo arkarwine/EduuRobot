@@ -6,9 +6,8 @@ from datetime import datetime, timedelta
 
 from hydrogram.types import Chat, ChatPermissions
 
+from config import WARNING_MUTE_DAYS
 from eduu.database.warns import add_warns, get_warn_action, get_warns, get_warns_limit, reset_warns
-
-WARNING_MUTE_DAYS = 7
 
 
 async def apply_moderation_action(
@@ -48,7 +47,12 @@ async def get_missing_bot_permissions(chat: Chat, *permissions: str) -> list[str
     ]
 
 
-async def add_warning_and_apply_action(chat: Chat, user_id: int) -> tuple[int, int, str | None]:
+async def add_warning_and_apply_action(
+    chat: Chat,
+    user_id: int,
+    *,
+    mute_until: datetime | None = None,
+) -> tuple[int, int, str | None]:
     await add_warns(chat.id, user_id, 1)
     count = await get_warns(chat.id, user_id)
     limit = await get_warns_limit(chat.id)
@@ -57,11 +61,13 @@ async def add_warning_and_apply_action(chat: Chat, user_id: int) -> tuple[int, i
 
     action = await get_warn_action(chat.id)
     if action == "mute":
+        if mute_until is None:
+            mute_until = datetime.now() + timedelta(days=WARNING_MUTE_DAYS)
         await apply_moderation_action(
             chat,
             user_id,
             action,
-            until_date=datetime.now() + timedelta(days=WARNING_MUTE_DAYS),
+            until_date=mute_until,
         )
     else:
         await apply_moderation_action(chat, user_id, action)

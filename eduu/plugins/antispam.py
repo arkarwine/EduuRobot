@@ -13,7 +13,7 @@ from hydrogram import Client, StopPropagation, filters
 from hydrogram.errors import RPCError
 from hydrogram.types import ChatPrivileges, Message
 
-from config import PREFIXES
+from config import PREFIXES, PROFANITY_MUTE_HOURS
 from eduu.database.antispam import (
     ALLOWLIST_KINDS,
     add_antispam_allow,
@@ -122,10 +122,24 @@ def _cleanup_history(now: float, max_window: int) -> None:
     last_cleanup = now
 
 
-async def _warn_and_delete(c: Client, m: Message, s: Strings, reason: str) -> None:
+async def _warn_and_delete(
+    c: Client,
+    m: Message,
+    s: Strings,
+    reason: str,
+    *,
+    profanity_word: bool = False,
+) -> None:
     warning_error = None
+    mute_until = None
+    if profanity_word:
+        mute_until = datetime.now() + timedelta(hours=PROFANITY_MUTE_HOURS)
     try:
-        count, limit, action = await add_warning_and_apply_action(m.chat, m.from_user.id)
+        count, limit, action = await add_warning_and_apply_action(
+            m.chat,
+            m.from_user.id,
+            mute_until=mute_until,
+        )
     except Exception as error:
         warning_error = error
 
@@ -144,6 +158,22 @@ async def _warn_and_delete(c: Client, m: Message, s: Strings, reason: str) -> No
             ),
         )
         raise StopPropagation
+
+    if profanity_word:
+        if count < limit:
+            await c.send_message(m.chat.id, s("profanity_warn_warning"))
+        elif action == "mute":
+            await c.send_message(m.chat.id, s("profanity_warn_final"))
+        else:
+            key = {"ban": "warn_banned", "kick": "warn_kicked"}[action]
+            warning = s(key).format(
+                target_user=m.from_user.mention,
+                warn_count=count,
+                warn_limit=limit,
+            )
+            await c.send_message(m.chat.id, warning)
+        raise StopPropagation
+
     key = {
         "ban": "warn_banned",
         "mute": "warn_muted",
@@ -378,7 +408,7 @@ async def detect_spam(c: Client, m: Message, s: Strings):
         await _warn_and_delete(c, m, s, s("antispam_reason_forward"))
     if word_spam:
         history.clear()
-        await _warn_and_delete(c, m, s, s("antispam_reason_spam_word"))
+        await _warn_and_delete(c, m, s, s("antispam_reason_spam_word"), profanity_word=True)
     if not _spam_kind(history, now, settings):
         return
     ids = [message_id for _, message_id, _ in history]
