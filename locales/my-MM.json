@@ -20,6 +20,8 @@
   "antispam_reason_forward": "Forward လုပ်ထားတဲ့ message များကို ခွင့်မပြုပါ။",
   "antispam_reason_spam_word": "Message ထဲမှာ သတ်မှတ်ထားတဲ့ spam word ပါဝင်နေပါတယ်။",
   "antispam_reason_telegram_link": "Telegram link များကို ခွင့်မပြုပါ။",
+  "profanity_warn_warning": "မေတ္တာရပ်ခံပါတယ်ခင်ဗျာ။\nဒီဂရုထဲမှာ အချင်းချင်း စော်ကားတာ၊ ရိုင်းစိုင်းစွာ ပြောဆိုတာတွေကို လုံးဝ(လုံးဝ) ခွင့်မပြုပါဘူး။\nသတိပေးချက် သုံးကြိန်ပြည့်သွားတာနဲ့ ဂရုထဲမှာ (၂) နာရီကြာ Mute လုပ်ခံရပါမယ် အဲ့တာကြောင့်မလို့ မဆဲကြဖို့ တောင်းဆိုပါတယ်ဗျ",
+  "profanity_warn_final": "ဝမ်းနည်းပါတယ်၊ သင် သုံးကြိန်စလုံး ရိုင်းစိုင်းစွာ ပြောဆိုတာကြောင့် (၂) နာရီကြာ Mute ခံရပါတယ်ဗျ။ စိတ်မကောင်းပါဘူးဗျာ၊ sorry ပါ",
   "antispam_status_disabled": "ဒီ chat မှာ Anti-spam ကို ပိတ်ထားပါတယ်။",
   "antispam_status_enabled": "ဒီ chat မှာ Anti-spam ကို ဖွင့်ထားပါတယ်။",
   "spam_filter_add_empty": "<b>အသုံးပြုနည်း:</b> <code>/spamfilter word or phrase</code>။ Matching သည် exact word boundary ကို အသုံးပြုပါတယ်။",

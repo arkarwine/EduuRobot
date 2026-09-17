@@ -22,9 +22,6 @@ eduu/*.session*
 # Database
 *.db*
 
-# Bot personal config file
-config.py
-
 # Misc
 unknown_errors.txt
 eduu/downloads/
