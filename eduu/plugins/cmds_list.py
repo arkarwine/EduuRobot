@@ -51,7 +51,6 @@ def gen_categories_kb(strings_manager):
             styled_button(
                 strings_manager(f"cmds_category_{category}"),
                 callback_data=f"view_category {category}",
-                style="primary",
             )
             for category in row
             if category

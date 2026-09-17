@@ -84,7 +84,6 @@ COMMAND_USAGES = {
     "ckick": "/ckick <chat> <user> [reason]",
     "ckickall": "/ckickall <chat> [reason]",
     "cleanservice": "/cleanservice [on|off]",
-    "chatstats": "/chatstats",
     "cmute": "/cmute <chat> <user> [reason]",
     "cmuteall": "/cmuteall <chat> [reason]",
     "ctban": "/ctban <chat> <user> <duration> [reason]",

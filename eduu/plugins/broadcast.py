@@ -13,11 +13,9 @@ from hydrogram import Client, filters
 from hydrogram.errors import BadRequest, FloodWait, Forbidden
 from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from config import LOG_CHAT, PREFIXES
+from config import PREFIXES
 from eduu.database.chat_logs import (
-    get_all_chat_ids,
     get_broadcast_chat_ids,
-    get_chat_stats,
     log_chat,
 )
 from eduu.utils import commands, sudofilter
@@ -206,29 +204,4 @@ async def confirm_broadcast(c: Client, m: CallbackQuery, s: Strings):
         )
 
 
-@Client.on_message(filters.command("chatstats", PREFIXES) & sudofilter)
-@use_chat_lang
-async def chat_statistics(c: Client, m: Message, s: Strings):
-    """Get statistics about logged chats (sudoers only)"""
-    try:
-        stats = await get_chat_stats()
-        all_chats = await get_all_chat_ids()
-
-        stats_text = s("chatstats_title") + "\n\n"
-        stats_text += s("chatstats_total").format(count=len(all_chats)) + "\n\n"
-        stats_text += s("chatstats_breakdown") + "\n"
-
-        total = 0
-        for row in stats:
-            chat_type, count = row
-            stats_text += f"  • {chat_type}: {count}\n"
-            total += count
-
-        await m.reply_text(stats_text)
-    except Exception as e:
-        print(f"Error getting statistics: {e}")
-        await m.reply_text(s("broadcast_failed").format(error=escape(str(e))))
-
-
 commands.add_command("broadcast", "tools")
-commands.add_command("chatstats", "tools")
