@@ -36,20 +36,37 @@ pending_broadcasts: dict[str, dict[str, int | str | list[int] | float | bool]] =
 conn = database.get_conn()
 
 
-def parse_broadcast_schedule(text: str | None) -> int | None:
+def parse_broadcast_schedule(text: str | None) -> tuple[str, int] | None:
     if not text:
         return None
 
     tokens = text.split()
     for index, token in enumerate(tokens):
-        if token.lower() in {"-everyday", "everyday", "-daily", "daily"}:
+        normalized = token.lower()
+        if normalized in {"-everyday", "everyday", "-daily", "daily"}:
             if index + 1 >= len(tokens):
                 return None
             try:
-                days = int(tokens[index + 1])
+                value = int(tokens[index + 1])
             except ValueError:
                 return None
-            return max(1, days)
+            return ("days", max(1, value))
+
+        if normalized in {"-every", "every"}:
+            if index + 1 >= len(tokens):
+                return None
+            raw = tokens[index + 1]
+            if raw.lower().endswith("h"):
+                try:
+                    hours = int(raw[:-1])
+                except ValueError:
+                    return None
+                return ("hours", max(1, hours))
+            try:
+                hours = int(raw)
+            except ValueError:
+                return None
+            return ("hours", max(1, hours))
     return None
 
 
@@ -92,9 +109,11 @@ async def save_scheduled_broadcast(
     source_chat_id: int,
     source_message_id: int,
     chat_ids: list[int],
-    days: int,
+    interval_type: str,
+    interval_value: int,
 ) -> int:
-    next_run_at = datetime.now() + timedelta(days=1)
+    interval_seconds = 86400 if interval_type == "days" else 3600
+    next_run_at = datetime.now() + timedelta(seconds=interval_seconds)
     cursor = await conn.execute(
         """
         INSERT INTO broadcast_schedules (
@@ -108,7 +127,7 @@ async def save_scheduled_broadcast(
             source_message_id,
             json.dumps([int(chat_id) for chat_id in chat_ids]),
             next_run_at.isoformat(timespec="seconds"),
-            days,
+            interval_value,
         ),
     )
     await conn.commit()
@@ -137,8 +156,8 @@ async def _run_persistent_schedule(c: Client, schedule_id: int) -> None:
         if row is None:
             return
 
-        remaining_days = int(row[6])
-        if remaining_days <= 0:
+        interval_value = int(row[6])
+        if interval_value <= 0:
             await _delete_schedule(schedule_id)
             return
 
@@ -151,16 +170,16 @@ async def _run_persistent_schedule(c: Client, schedule_id: int) -> None:
         }
 
         await _send_broadcast_once(c, pending)
-        remaining_days -= 1
 
-        if remaining_days <= 0:
+        interval_value -= 1
+        if interval_value <= 0:
             await _delete_schedule(schedule_id)
             return
 
-        next_run_at = datetime.now() + timedelta(days=1)
+        next_run_at = datetime.now() + timedelta(hours=1)
         await conn.execute(
             "UPDATE broadcast_schedules SET next_run_at = ?, remaining_days = ? WHERE id = ?",
-            (next_run_at.isoformat(timespec="seconds"), remaining_days, schedule_id),
+            (next_run_at.isoformat(timespec="seconds"), interval_value, schedule_id),
         )
         await conn.commit()
 
@@ -198,7 +217,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
     if len(preview_text) > BROADCAST_PREVIEW_LIMIT:
         preview_text = f"{preview_text[:BROADCAST_PREVIEW_LIMIT]}..."
 
-    schedule_days = parse_broadcast_schedule(m.text)
+    schedule = parse_broadcast_schedule(m.text)
 
     try:
         chat_ids = await get_broadcast_chat_ids()
@@ -214,12 +233,14 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
             "source_message_id": source_message.id,
             "chat_ids": chat_ids,
             "created_at": time(),
-            "scheduled_everyday_days": schedule_days,
+            "scheduled_interval": schedule,
         }
 
         preview_message = s("broadcast_preview").format(count=chat_count, preview=preview_text)
-        if schedule_days:
-            preview_message += f"\n\n<b>Daily schedule:</b> {schedule_days} day(s)."
+        if schedule:
+            interval_type, interval_value = schedule
+            label = "day(s)" if interval_type == "days" else "hour(s)"
+            preview_message += f"\n\n<b>Schedule:</b> every {interval_value} {label}."
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -286,18 +307,21 @@ async def confirm_broadcast(c: Client, m: CallbackQuery, s: Strings):
         await edit_styled_text(m.message, s("broadcast_expired"), None)
         return
 
-    schedule_days = pending.get("scheduled_everyday_days")
-    if schedule_days:
+    schedule = pending.get("scheduled_interval")
+    if schedule:
+        interval_type, interval_value = schedule
         schedule_id = await save_scheduled_broadcast(
             int(pending["requester_id"]),
             int(pending["source_chat_id"]),
             int(pending["source_message_id"]),
             [int(chat_id) for chat_id in pending["chat_ids"]],
-            int(schedule_days),
+            interval_type,
+            int(interval_value),
         )
+        label = "days" if interval_type == "days" else "hours"
         await edit_styled_text(
             m.message,
-            s("broadcast_scheduled").format(days=int(schedule_days)),
+            s("broadcast_scheduled").format(days=int(interval_value), unit=label),
             None,
         )
         asyncio.create_task(_run_persistent_schedule(c, schedule_id))
