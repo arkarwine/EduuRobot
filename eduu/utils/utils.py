@@ -75,7 +75,7 @@ COMMAND_USAGES = {
     "addreply": "/addreply <text> or reply with /addreply [keywords]",
     "autoreply": "/autoreply [on|off|mode random|keyword|chance|cooldown|rate]",
     "ban": "/ban <user> [reason] or reply with /ban [reason]",
-    "broadcast": "/broadcast as a reply to the message to send",
+    "broadcast": "/broadcast [-everyday <days>] as a reply to the message to send",
     "call": "/call [amount] [batch size] <text> or reply with /call [amount] [batch size]",
     "calladmins": "/calladmins <text> or reply with /calladmins",
     "cat": "/cat",
