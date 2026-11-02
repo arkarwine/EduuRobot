@@ -27,6 +27,23 @@ def default_words() -> list[str]:
 def connect_db(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS spam_filter_settings(
+            chat_id INTEGER PRIMARY KEY
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS spam_filters(
+            chat_id INTEGER,
+            word TEXT,
+            UNIQUE(chat_id, word)
+        )
+        """
+    )
+    conn.commit()
     return conn
 
 
