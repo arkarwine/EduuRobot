@@ -204,6 +204,10 @@ class Eduu(Client):
         logger.info("Loaded %s effective sudoers.", len(effective_sudoers))
         await super().start()
 
+        from eduu.plugins.broadcast import restore_scheduled_broadcasts  # noqa: PLC0415
+
+        await restore_scheduled_broadcasts(self)
+
         self.start_time = time.time()
         cache_bot_identity(name=self.me.first_name, username=self.me.username)
         bot_name = self.me.first_name or self.me.username or "Bot"

@@ -79,13 +79,6 @@ async def get_all_chats():
     return rows
 
 
-async def get_all_chat_ids():
-    """Get all logged chat IDs"""
-    cursor = await conn.execute("SELECT chat_id FROM chat_logs")
-    rows = await cursor.fetchall()
-    return [row[0] for row in rows]
-
-
 async def get_private_broadcast_chat_ids():
     """Get private chat IDs that explicitly interacted with the bot."""
     cursor = await conn.execute(
@@ -124,12 +117,3 @@ async def get_broadcast_chat_ids():
     )
     rows = await cursor.fetchall()
     return [row[0] for row in rows]
-
-
-async def get_chat_stats():
-    """Get statistics about logged chats"""
-    cursor = await conn.execute(
-        "SELECT chat_type, COUNT(*) as count FROM chat_logs GROUP BY chat_type"
-    )
-    rows = await cursor.fetchall()
-    return rows

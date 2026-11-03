@@ -135,6 +135,18 @@ class Database:
             private_interacted INTEGER DEFAULT 0
         );
 
+        CREATE TABLE IF NOT EXISTS broadcast_schedules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            requester_id INTEGER NOT NULL,
+            source_chat_id INTEGER NOT NULL,
+            source_message_id INTEGER NOT NULL,
+            chat_ids TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            next_run_at TIMESTAMP NOT NULL,
+            remaining_days INTEGER NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1
+        );
+
         CREATE TABLE IF NOT EXISTS welcome_defaults(
             kind TEXT PRIMARY KEY,
             text TEXT

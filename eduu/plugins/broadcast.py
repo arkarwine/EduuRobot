@@ -5,19 +5,21 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
+from datetime import datetime, timedelta
 from html import escape
 from time import time
 from uuid import uuid4
+
+from eduu.database import database
 
 from hydrogram import Client, filters
 from hydrogram.errors import BadRequest, FloodWait, Forbidden
 from hydrogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from config import LOG_CHAT, PREFIXES
+from config import PREFIXES
 from eduu.database.chat_logs import (
-    get_all_chat_ids,
     get_broadcast_chat_ids,
-    get_chat_stats,
     log_chat,
 )
 from eduu.utils import commands, sudofilter
@@ -30,7 +32,168 @@ BROADCAST_DELAY_SECONDS = 0.5
 BROADCAST_PREVIEW_LIMIT = 700
 BROADCAST_PENDING_TTL = 15 * 60
 
-pending_broadcasts: dict[str, dict[str, int | str | list[int] | float]] = {}
+pending_broadcasts: dict[str, dict[str, int | str | list[int] | float | bool]] = {}
+conn = database.get_conn()
+
+
+def parse_broadcast_schedule(text: str | None) -> tuple[str, int] | None:
+    if not text:
+        return None
+
+    tokens = text.split()
+    for index, token in enumerate(tokens):
+        normalized = token.lower()
+        if normalized in {"-everyday", "everyday", "-daily", "daily"}:
+            if index + 1 >= len(tokens):
+                return None
+            try:
+                value = int(tokens[index + 1])
+            except ValueError:
+                return None
+            return ("days", max(1, value))
+
+        if normalized in {"-every", "every"}:
+            if index + 1 >= len(tokens):
+                return None
+            raw = tokens[index + 1]
+            if raw.lower().endswith("h"):
+                try:
+                    hours = int(raw[:-1])
+                except ValueError:
+                    return None
+                return ("hours", max(1, hours))
+            try:
+                hours = int(raw)
+            except ValueError:
+                return None
+            return ("hours", max(1, hours))
+    return None
+
+
+async def _send_broadcast_once(
+    c: Client,
+    pending: dict[str, int | str | list[int] | float | bool],
+) -> tuple[int, int, str]:
+    chat_ids = [int(chat_id) for chat_id in pending["chat_ids"]]
+    source_chat_id = int(pending["source_chat_id"])
+    source_message_id = int(pending["source_message_id"])
+    chat_count = len(chat_ids)
+
+    successful = 0
+    failed = 0
+    errors = ""
+
+    for start in range(0, chat_count, BROADCAST_BATCH_SIZE):
+        batch = chat_ids[start : start + BROADCAST_BATCH_SIZE]
+        results = await asyncio.gather(
+            *(
+                _forward_to_chat(c, chat_id, source_chat_id, source_message_id)
+                for chat_id in batch
+            )
+        )
+        for sent, error in results:
+            if sent:
+                successful += 1
+            else:
+                failed += 1
+                errors += error or ""
+
+        if start + len(batch) < chat_count:
+            await asyncio.sleep(BROADCAST_DELAY_SECONDS)
+
+    return successful, failed, errors
+
+
+async def save_scheduled_broadcast(
+    requester_id: int,
+    source_chat_id: int,
+    source_message_id: int,
+    chat_ids: list[int],
+    interval_type: str,
+    interval_value: int,
+) -> int:
+    interval_seconds = 86400 if interval_type == "days" else 3600
+    next_run_at = datetime.now() + timedelta(seconds=interval_seconds)
+    cursor = await conn.execute(
+        """
+        INSERT INTO broadcast_schedules (
+            requester_id, source_chat_id, source_message_id, chat_ids,
+            created_at, next_run_at, remaining_days, is_active
+        ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, 1)
+        """,
+        (
+            requester_id,
+            source_chat_id,
+            source_message_id,
+            json.dumps([int(chat_id) for chat_id in chat_ids]),
+            next_run_at.isoformat(timespec="seconds"),
+            interval_value,
+        ),
+    )
+    await conn.commit()
+    return int(cursor.lastrowid)
+
+
+async def _get_schedule_row(schedule_id: int):
+    cursor = await conn.execute(
+        "SELECT id, requester_id, source_chat_id, source_message_id, chat_ids, next_run_at, remaining_days FROM broadcast_schedules WHERE id = ? AND is_active = 1",
+        (schedule_id,),
+    )
+    return await cursor.fetchone()
+
+
+async def _delete_schedule(schedule_id: int) -> None:
+    await conn.execute(
+        "UPDATE broadcast_schedules SET is_active = 0 WHERE id = ?",
+        (schedule_id,),
+    )
+    await conn.commit()
+
+
+async def _run_persistent_schedule(c: Client, schedule_id: int) -> None:
+    while True:
+        row = await _get_schedule_row(schedule_id)
+        if row is None:
+            return
+
+        interval_value = int(row[6])
+        if interval_value <= 0:
+            await _delete_schedule(schedule_id)
+            return
+
+        pending = {
+            "requester_id": int(row[1]),
+            "source_chat_id": int(row[2]),
+            "source_message_id": int(row[3]),
+            "chat_ids": json.loads(row[4]),
+            "created_at": time(),
+        }
+
+        await _send_broadcast_once(c, pending)
+
+        interval_value -= 1
+        if interval_value <= 0:
+            await _delete_schedule(schedule_id)
+            return
+
+        next_run_at = datetime.now() + timedelta(hours=1)
+        await conn.execute(
+            "UPDATE broadcast_schedules SET next_run_at = ?, remaining_days = ? WHERE id = ?",
+            (next_run_at.isoformat(timespec="seconds"), interval_value, schedule_id),
+        )
+        await conn.commit()
+
+        wait_seconds = max(0.0, (next_run_at - datetime.now()).total_seconds())
+        await asyncio.sleep(wait_seconds)
+
+
+async def restore_scheduled_broadcasts(c: Client) -> None:
+    cursor = await conn.execute(
+        "SELECT id FROM broadcast_schedules WHERE is_active = 1 AND remaining_days > 0"
+    )
+    rows = await cursor.fetchall()
+    for row in rows:
+        asyncio.create_task(_run_persistent_schedule(c, int(row[0])))
 
 
 # Log all chats the bot interacts with
@@ -54,6 +217,8 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
     if len(preview_text) > BROADCAST_PREVIEW_LIMIT:
         preview_text = f"{preview_text[:BROADCAST_PREVIEW_LIMIT]}..."
 
+    schedule = parse_broadcast_schedule(m.text)
+
     try:
         chat_ids = await get_broadcast_chat_ids()
         chat_count = len(chat_ids)
@@ -68,7 +233,14 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
             "source_message_id": source_message.id,
             "chat_ids": chat_ids,
             "created_at": time(),
+            "scheduled_interval": schedule,
         }
+
+        preview_message = s("broadcast_preview").format(count=chat_count, preview=preview_text)
+        if schedule:
+            interval_type, interval_value = schedule
+            label = "day(s)" if interval_type == "days" else "hour(s)"
+            preview_message += f"\n\n<b>Schedule:</b> every {interval_value} {label}."
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -86,11 +258,7 @@ async def broadcast_message(c: Client, m: Message, s: Strings):
                 ]
             ]
         )
-        await send_styled_text(
-            m,
-            s("broadcast_preview").format(count=chat_count, preview=preview_text),
-            keyboard,
-        )
+        await send_styled_text(m, preview_message, keyboard)
     except Exception as e:
         await m.reply_text(s("broadcast_failed").format(error=escape(str(e))))
 
@@ -137,6 +305,26 @@ async def confirm_broadcast(c: Client, m: CallbackQuery, s: Strings):
         return
     if time() - float(pending["created_at"]) > BROADCAST_PENDING_TTL:
         await edit_styled_text(m.message, s("broadcast_expired"), None)
+        return
+
+    schedule = pending.get("scheduled_interval")
+    if schedule:
+        interval_type, interval_value = schedule
+        schedule_id = await save_scheduled_broadcast(
+            int(pending["requester_id"]),
+            int(pending["source_chat_id"]),
+            int(pending["source_message_id"]),
+            [int(chat_id) for chat_id in pending["chat_ids"]],
+            interval_type,
+            int(interval_value),
+        )
+        label = "days" if interval_type == "days" else "hours"
+        await edit_styled_text(
+            m.message,
+            s("broadcast_scheduled").format(days=int(interval_value), unit=label),
+            None,
+        )
+        asyncio.create_task(_run_persistent_schedule(c, schedule_id))
         return
 
     chat_ids = list(pending["chat_ids"])
@@ -206,29 +394,4 @@ async def confirm_broadcast(c: Client, m: CallbackQuery, s: Strings):
         )
 
 
-@Client.on_message(filters.command("chatstats", PREFIXES) & sudofilter)
-@use_chat_lang
-async def chat_statistics(c: Client, m: Message, s: Strings):
-    """Get statistics about logged chats (sudoers only)"""
-    try:
-        stats = await get_chat_stats()
-        all_chats = await get_all_chat_ids()
-
-        stats_text = s("chatstats_title") + "\n\n"
-        stats_text += s("chatstats_total").format(count=len(all_chats)) + "\n\n"
-        stats_text += s("chatstats_breakdown") + "\n"
-
-        total = 0
-        for row in stats:
-            chat_type, count = row
-            stats_text += f"  • {chat_type}: {count}\n"
-            total += count
-
-        await m.reply_text(stats_text)
-    except Exception as e:
-        print(f"Error getting statistics: {e}")
-        await m.reply_text(s("broadcast_failed").format(error=escape(str(e))))
-
-
 commands.add_command("broadcast", "tools")
-commands.add_command("chatstats", "tools")

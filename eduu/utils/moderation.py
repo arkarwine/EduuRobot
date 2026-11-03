@@ -9,6 +9,8 @@ from hydrogram.types import Chat, ChatPermissions
 from config import WARNING_MUTE_DAYS
 from eduu.database.warns import add_warns, get_warn_action, get_warns, get_warns_limit, reset_warns
 
+WARNING_MUTE_HOURS = 1
+
 
 async def apply_moderation_action(
     chat: Chat,
@@ -67,7 +69,7 @@ async def add_warning_and_apply_action(
             chat,
             user_id,
             action,
-            until_date=mute_until,
+            until_date=datetime.now() + timedelta(hours=WARNING_MUTE_HOURS),
         )
     else:
         await apply_moderation_action(chat, user_id, action)

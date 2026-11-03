@@ -9,13 +9,11 @@ import io
 import os
 import re
 import sys
-import time
 import traceback
 from contextlib import redirect_stdout, suppress
 from sqlite3 import IntegrityError, OperationalError
 from typing import TYPE_CHECKING
 
-import humanfriendly
 import speedtest
 from hydrogram import Client, filters
 from hydrogram.enums import ChatType, MessageEntityType
@@ -299,29 +297,6 @@ async def leave_chat(c: Client, m: Message):
         chat_id = m.text.split(maxsplit=1)[1]
         with suppress(RPCError):
             await c.leave_chat(int(chat_id))
-
-
-@Client.on_message(filters.command("bot_stats", prefix) & sudofilter)
-async def getbotstats(c: Client, m: Message):
-    users_count = await conn.execute("select count() from users")
-    users_count = await users_count.fetchone()
-    groups_count = await conn.execute("select count() from groups")
-    groups_count = await groups_count.fetchone()
-    filters_count = await conn.execute("select count() from filters")
-    filters_count = await filters_count.fetchone()
-    notes_count = await conn.execute("select count() from notes")
-    notes_count = await notes_count.fetchone()
-    bot_uptime = round(time.time() - c.start_time)
-    bot_uptime = humanfriendly.format_timespan(bot_uptime)
-
-    await m.reply_text(
-        "<b>Bot statistics:</b>\n\n"
-        f"<b>Users:</b> {users_count[0]}\n"
-        f"<b>Groups:</b> {groups_count[0]}\n"
-        f"<b>Filters:</b> {filters_count[0]}\n"
-        f"<b>Notes:</b> {notes_count[0]}\n\n"
-        f"<b>Uptime:</b> {bot_uptime}"
-    )
 
 
 @Client.on_message(filters.command("del", prefix) & sudofilter)
