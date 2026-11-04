@@ -280,7 +280,7 @@
   "start_infos_btn": "ℹ️ About",
   "start_language_btn": "<tg-emoji emoji-id=\"5260512129240276089\">🌐</tg-emoji> Language",
   "start_private": "Hello! I'm {bot_name}. To discover more about my functions, click on the buttons below.",
-  "start_updates_btn": "<tg-emoji emoji-id=\"5260268501515377807\">📢</tg-emoji> ကဗျာဖတ်မယ်",
+  "start_updates_btn": "<tg-emoji emoji-id=\"5260268501515377807\">📢</tg-emoji>📖✨  ကဗျာ ဖတ်ရန်  ✨📖",
   "start_owner_btn": "<tg-emoji emoji-id=\"5258011929993026890\">👤</tg-emoji> Owner",
   "start_support_group_btn": "<tg-emoji emoji-id=\"5260535596941582167\">💬</tg-emoji> စကားပြောမယ်",
   "owner_info": "<tg-emoji emoji-id=\"5258011929993026890\">👤</tg-emoji> <b>Group Owner:</b> {owner_name}\n\n{owner_mention}",
