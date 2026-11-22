@@ -389,9 +389,9 @@ async def _send_response(c: Client, m: Message, response: dict) -> bool:
         )
         return False
 
-    if not source:
+    if not source or source.empty:
         logger.warning(
-            "Autoreply source message %s was not returned from chat %s",
+            "Autoreply source message %s from chat %s is unavailable or empty",
             response.get("source_message_id"),
             response.get("source_chat_id"),
         )
