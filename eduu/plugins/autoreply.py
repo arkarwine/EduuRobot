@@ -9,6 +9,7 @@ from collections import defaultdict, deque
 from html import escape
 from time import monotonic
 
+import regex
 from hydrogram import Client, StopPropagation, filters
 from hydrogram.enums import ParseMode
 from hydrogram.errors import RPCError
@@ -47,6 +48,9 @@ CHANCE_OPTIONS = [0, 25, 50, 75, 100]
 REPLIES_PER_PAGE = 10
 MANAGER_DELETE_DELAY = 30
 logger = logging.getLogger(__name__)
+_EMOJI_CHARACTER_RE = regex.compile(
+    r"\p{Extended_Pictographic}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3"
+)
 _last_interaction: dict[int, float] = {}
 _recent_interactions: dict[int, deque[float]] = defaultdict(deque)
 
@@ -86,6 +90,11 @@ def _message_label(message: Message) -> str:
     if message.sticker:
         return "[sticker]"
     return f"[{str(message.media or 'message').split('.')[-1].lower()}]"
+
+
+def _is_single_emoji_label(label: str) -> bool:
+    graphemes = regex.findall(r"\X", label.strip())
+    return len(graphemes) == 1 and bool(_EMOJI_CHARACTER_RE.search(graphemes[0]))
 
 
 def _next_option(current: int, options: list[int]) -> int:
@@ -390,8 +399,32 @@ async def _send_response(c: Client, m: Message, response: dict) -> bool:
         return False
 
     if not source or source.empty:
+        label = (response.get("label") or "").strip()
+        if (
+            label
+            and label.casefold() not in {"sticker", "[sticker]"}
+            and not _is_single_emoji_label(label)
+        ):
+            logger.warning(
+                "Autoreply source message %s from chat %s is unavailable or empty; "
+                "using its label as the reply",
+                response.get("source_message_id"),
+                response.get("source_chat_id"),
+            )
+            try:
+                await m.reply_text(
+                    label,
+                    quote=True,
+                    parse_mode=ParseMode.DISABLED,
+                )
+                return True
+            except RPCError:
+                logger.exception("Could not send autoreply label fallback")
+                return False
+
         logger.warning(
-            "Autoreply source message %s from chat %s is unavailable or empty",
+            "Autoreply source message %s from chat %s is unavailable or empty, "
+            "with no usable label fallback",
             response.get("source_message_id"),
             response.get("source_chat_id"),
         )
