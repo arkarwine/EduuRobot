@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import json
 import sqlite3
 import sys
@@ -136,9 +137,12 @@ async def migrate(
     rows: list[tuple[int, int, int]],
     target_chat_id: int,
     mapping_path: Path,
+    session_string: str,
 ) -> None:
     if API_ID <= 0 or not API_HASH or API_HASH.startswith("YOUR_"):
         raise ValueError("Set valid API_ID and API_HASH in config.py or .env first.")
+    if not session_string:
+        raise ValueError("A Hydrogram user session string is required.")
 
     mappings = load_mapping(mapping_path, target_chat_id)
     mapping_path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +168,7 @@ async def migrate(
         SESSION_NAME,
         api_id=API_ID,
         api_hash=API_HASH,
+        session_string=session_string,
         workdir=str(ROOT / "eduu"),
         no_updates=True,
     )
@@ -279,7 +284,19 @@ def main() -> int:
         if not args.apply:
             print("Dry run only. Add --apply to log in and repost the messages.")
             return 0
-        asyncio.run(migrate(conn, database, rows, args.target_chat_id, mapping_path))
+        session_string = getpass.getpass("Hydrogram user session string: ").strip()
+        if not session_string:
+            raise SystemExit("A non-empty Hydrogram session string is required.")
+        asyncio.run(
+            migrate(
+                conn,
+                database,
+                rows,
+                args.target_chat_id,
+                mapping_path,
+                session_string,
+            )
+        )
     finally:
         conn.close()
     return 0
