@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from collections import defaultdict, deque
 from html import escape
@@ -45,6 +46,7 @@ RATE_LIMIT_OPTIONS = [0, 5, 10, 20, 30]
 CHANCE_OPTIONS = [0, 25, 50, 75, 100]
 REPLIES_PER_PAGE = 10
 MANAGER_DELETE_DELAY = 30
+logger = logging.getLogger(__name__)
 _last_interaction: dict[int, float] = {}
 _recent_interactions: dict[int, deque[float]] = defaultdict(deque)
 
@@ -379,12 +381,33 @@ async def _send_response(c: Client, m: Message, response: dict) -> bool:
             )
             return True
         source = await c.get_messages(response["source_chat_id"], response["source_message_id"])
-        if not source:
-            return False
-        await source.copy(m.chat.id, reply_to_message_id=m.id)
-        return True
     except RPCError:
+        logger.exception(
+            "Could not fetch autoreply source message %s from chat %s",
+            response.get("source_message_id"),
+            response.get("source_chat_id"),
+        )
         return False
+
+    if not source:
+        logger.warning(
+            "Autoreply source message %s was not returned from chat %s",
+            response.get("source_message_id"),
+            response.get("source_chat_id"),
+        )
+        return False
+
+    try:
+        await source.copy(m.chat.id, reply_to_message_id=m.id)
+    except RPCError:
+        logger.exception(
+            "Could not copy autoreply source message %s from chat %s into chat %s",
+            response.get("source_message_id"),
+            response.get("source_chat_id"),
+            m.chat.id,
+        )
+        return False
+    return True
 
 
 async def _maybe_react(m: Message, settings: dict, reactions: list[str]) -> None:
@@ -692,7 +715,13 @@ async def manager_callback(c: Client, m: CallbackQuery, s: Strings):
         if not response:
             await m.answer("⚠️ Reply not found.", show_alert=True)
             return
-        await _send_response(c, m.message, response)
+        if not await _send_response(c, m.message, response):
+            await m.answer(
+                "⚠️ Could not send this reply. The bot may not be able to access the "
+                "source message; check the bot logs for details.",
+                show_alert=True,
+            )
+            return
         await send_styled_text(
             m.message,
             f"👁 Reply {response_id}",
